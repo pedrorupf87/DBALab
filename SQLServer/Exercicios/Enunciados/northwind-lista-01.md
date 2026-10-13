@@ -144,5 +144,3 @@ Crie um procedimento que percorra as categorias na tabela `Categories`, calcule 
 ### 30. Migração de Pedidos para Arquivo**  
 Implemente um procedimento que percorra pedidos concluídos (`Orders`) há mais de 10 anos e os mova para uma tabela de arquivo (`ArchivedOrders`), junto com seus itens. Use transação para mover os dados com integridade e implemente rollback se qualquer etapa falhar.
 4. **Boa Prática**: Sempre libere os cursores com `CLOSE` e `DEALLOCATE`.
-
-Se precisar do gabarito de algum ou todos os exercícios, é só pedir! 😊
