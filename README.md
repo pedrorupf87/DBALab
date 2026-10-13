@@ -1,2 +1,2 @@
-# dba-postgresql-lab
-Laboratório de estudos para DBA PostgreSQL: administração, tuning, backup e replicação com o Northwind
+# dba-lab
+Laboratório de estudos para DBA SQL Server: administração, tuning, backup e replicação com o Northwind
