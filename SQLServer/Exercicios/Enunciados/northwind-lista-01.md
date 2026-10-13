@@ -47,15 +47,6 @@
 10. **Inserção em Cascata**
     - Para cada novo pedido inserido na tabela `Orders`, insira automaticamente na tabela `Order Details` um item padrão com um produto de ID 1, quantidade de 5 e preço unitário padrão. 
 
----
-
-### Dicas para Resolver os Exercícios
-- Utilize **CTEs** para consultas intermediárias, especialmente em cenários complexos.
-- Explore transações com `BEGIN TRANSACTION`, `COMMIT`, e `ROLLBACK` para garantir a consistência dos dados.
-- Certifique-se de usar as funções de sistema, como `GETDATE()` ou `ROW_NUMBER()`, onde aplicável.
-
-Caso precise de soluções ou explicações detalhadas, é só pedir! 😊
-
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -96,10 +87,6 @@ Segue a lista de exercícios avançados de **procedures** utilizando **cursores*
 
 20. **Atualização de Fretes com Base no Peso**
     - Desenvolva uma procedure que percorra os pedidos e, utilizando um cursor, atualize o campo `Freight` com base no peso total dos itens do pedido. O peso total pode ser calculado multiplicando a quantidade do produto pelo peso unitário, armazenado na tabela `Products`.
-
----
-
-Caso precise de ajuda para implementar as soluções, posso criar o gabarito ou explicar os conceitos por trás de cada exercício! 😊
 
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -156,13 +143,6 @@ Crie um procedimento que percorra as categorias na tabela `Categories`, calcule 
 
 ### 30. Migração de Pedidos para Arquivo**  
 Implemente um procedimento que percorra pedidos concluídos (`Orders`) há mais de 10 anos e os mova para uma tabela de arquivo (`ArchivedOrders`), junto com seus itens. Use transação para mover os dados com integridade e implemente rollback se qualquer etapa falhar.
-
----
-
-### **Dicas para Resolver**
-1. **Uso de Cursores**: Utilize `DECLARE CURSOR` e `FETCH NEXT` para processar linha a linha.
-2. **Transações**: Envolva as operações dentro de `BEGIN TRANSACTION`, `COMMIT`, e `ROLLBACK`.
-3. **Tratamento de Erros**: Use `TRY...CATCH` para capturar erros e realizar rollback se necessário.
 4. **Boa Prática**: Sempre libere os cursores com `CLOSE` e `DEALLOCATE`.
 
 Se precisar do gabarito de algum ou todos os exercícios, é só pedir! 😊
