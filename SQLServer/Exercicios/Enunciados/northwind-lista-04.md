@@ -1,0 +1,104 @@
+### **Exercícios Avançados - Lista 4**
+
+### **Cursores**
+
+1. Crie um cursor para iterar sobre os clientes na tabela `Customers` e atualizar o campo `Region` com base em uma lógica customizada (ex.: definir "N/A" onde estiver nulo).
+2. Use um cursor para calcular o total de pedidos (`Orders`) para cada cliente e inserir os resultados em uma tabela temporária.
+3. Desenvolva um cursor que analise os pedidos (`Orders`) e marque aqueles acima de um determinado valor no campo `Freight` como "Alto custo" em uma nova coluna.
+4. Escreva um cursor para verificar produtos com estoque abaixo de 10 unidades (`UnitsInStock`) e adicionar pedidos automáticos na tabela `Orders` para reposição.
+5. Crie um cursor para atualizar o preço dos produtos (`Products`) com base no fornecedor (`Suppliers`), aplicando um desconto diferenciado.
+6. Use um cursor para verificar todos os funcionários (`Employees`) e calcular a média de pedidos processados por cada um, inserindo o resultado em uma tabela de log.
+7. Desenvolva um cursor para listar os 5 clientes que mais realizaram pedidos nos últimos 12 meses, ordenados por volume total.
+8. Construa um cursor que analise as vendas por região e crie uma tabela de resumo com o total de vendas por país.
+9. Crie um cursor para excluir registros duplicados na tabela `Customers` mantendo apenas o mais antigo.
+10. Desenvolva um cursor para gerar automaticamente relatórios semanais dos pedidos atrasados e enviar alertas por e-mail.
+
+---
+
+### **XML**
+
+11. Converta os dados da tabela `Orders` para XML, incluindo os detalhes dos pedidos (`OrderDetails`), e armazene em uma coluna XML de uma tabela de log.
+12. Escreva uma consulta que extraia informações de um documento XML armazenado, listando clientes e seus pedidos.
+13. Gere um documento XML consolidado que contenha todas as informações dos produtos (`Products`) e seus fornecedores (`Suppliers`).
+14. Crie uma procedure que receba um documento XML como parâmetro, contendo novos clientes, e insira os dados na tabela `Customers`.
+15. Use XPath para buscar apenas os pedidos realizados no último mês de um campo XML que contém o histórico de pedidos.
+16. Desenvolva uma consulta que atualize dados na tabela `Employees` com base em informações de um campo XML.
+17. Crie um relatório em formato XML que combine dados de `Orders`, `OrderDetails` e `Products` para enviar a fornecedores.
+18. Escreva uma query que converta os dados da tabela `Customers` para XML, agrupando os clientes por país.
+19. Construa uma função que receba um documento XML contendo novos produtos e os insira na tabela `Products`.
+20. Extraia dados de um campo XML contendo informações sobre descontos aplicados e calcule o total de descontos por pedido.
+
+---
+
+### **JSON**
+
+21. Converta os dados de `Customers` para JSON e armazene em uma nova tabela chamada `CustomerBackup`.
+22. Escreva uma consulta que atualize os preços dos produtos (`Products`) com base em um campo JSON contendo ajustes de preços por categoria.
+23. Crie um relatório em formato JSON que inclua informações de `Orders`, `OrderDetails` e `Shippers`.
+24. Desenvolva uma procedure que receba um JSON contendo novos funcionários e insira esses dados na tabela `Employees`.
+25. Escreva uma query que converta o histórico de pedidos de cada cliente para JSON e o armazene em uma tabela de log.
+26. Use JSON para armazenar e consultar as preferências de comunicação dos clientes na tabela `Customers`.
+27. Converta dados das tabelas `Suppliers` e `Products` para JSON e envie para um sistema externo.
+28. Utilize funções JSON para calcular o valor total de um pedido, extraindo os preços e quantidades diretamente de um campo JSON.
+29. Crie uma função que receba um JSON contendo pedidos, valide os dados e insira nas tabelas `Orders` e `OrderDetails`.
+30. Escreva uma query para extrair e processar dados de um campo JSON contendo o histórico de interação com clientes, agrupando por frequência de contato.
+
+---
+
+### **Instruções Adicionais**
+- Para cada exercício, use transações para garantir integridade.
+- Verifique a possibilidade de combinar cursores, XML e JSON em um mesmo cenário para maior desafio.
+- Utilize tabelas temporárias e variáveis de tabela para suportar os cálculos e manipulações.
+- Sempre comente o código com explicações sobre a lógica utilizada.
+
+---
+
+Aqui estão **10 exercícios avançados** que combinam **cursores**, **XML** e **JSON** em cenários complexos:
+
+### **31. Atualizar preços de produtos a partir de um documento XML e registrar alterações em JSON**  
+**Descrição**: Utilize um cursor para iterar sobre um XML que contém ajustes de preços por categoria. Após atualizar os preços, registre o histórico de alterações em formato JSON.  
+
+---
+
+### **32. Converter pedidos para XML e JSON simultaneamente**  
+**Descrição**: Escreva uma query que converta informações de `Orders` e `OrderDetails` para XML e JSON no mesmo comando, permitindo visualizações distintas.  
+
+---
+
+### **33. Analisar interações de clientes armazenadas em JSON e gerar um relatório consolidado em XML**  
+**Descrição**: Um campo JSON contém o histórico de interações dos clientes. Use um cursor para processar cada cliente, calcular estatísticas (como interações por tipo) e gerar um relatório final consolidado em XML.  
+
+---
+
+### **34. Inserir pedidos de um documento XML e registrar erros em JSON**  
+**Descrição**: Crie uma procedure que leia pedidos de um documento XML, insira os dados em `Orders` e `OrderDetails`, e registre erros de validação (como produtos inexistentes) em uma tabela no formato JSON.  
+
+---
+
+### **35. Atualizar estoque de produtos com base em um cursor que processa XML e registra ajustes em JSON**  
+**Descrição**: Utilize um cursor para processar um documento XML com alterações de estoque por produto. Atualize a tabela `Products` e registre os ajustes realizados (com antes e depois) em uma coluna JSON.  
+
+---
+
+### **36. Sincronizar dados entre JSON e XML em uma única execução**  
+**Descrição**: Um sistema externo fornece dados de `Customers` em JSON e de `Orders` em XML. Crie um processo que sincronize ambos os formatos em tabelas correspondentes, garantindo integridade referencial.  
+
+---
+
+### **37. Converter XML com detalhes de pedidos para JSON agrupado por cliente**  
+**Descrição**: Leia um documento XML com informações de pedidos (cliente, produtos, datas) e converta os dados em um JSON consolidado por cliente, usando cursores para processar o XML.  
+
+---
+
+### **38. Validar e corrigir inconsistências entre JSON e XML usando cursores**  
+**Descrição**: Um banco de dados possui um campo JSON com informações de produtos e um XML com detalhes adicionais. Use um cursor para validar consistências entre ambos os formatos e corrigir discrepâncias no banco de dados.  
+
+---
+
+### **39. Criar um log de operações de atualização em JSON e consolidar em XML**  
+**Descrição**: Ao realizar atualizações em preços, estoques ou pedidos, registre cada operação em JSON e consolide o log diário em um documento XML agrupado por tipo de operação.  
+
+---
+
+### **40. Migrar estrutura XML para JSON e manter sincronização bidirecional**  
+**Descrição**: Leia dados de um documento XML e insira-os em tabelas no banco, gerando uma estrutura JSON equivalente. Use cursores para processar o XML e registre as alterações realizadas em uma tabela de auditoria JSON.  
