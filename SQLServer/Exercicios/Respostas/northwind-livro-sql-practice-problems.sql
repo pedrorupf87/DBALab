@@ -246,6 +246,7 @@ order by AverageFreight desc
 	  on e.EmployeeID = o.EmployeeID
 	join Products p
 	  on p.ProductID = od.ProductID
+order by o.OrderID, p.ProductID
 
 -- 30
   select c.CustomerID as Customer_CustomerID,
@@ -346,6 +347,7 @@ order by newid()
    where od.Quantity >= 60
 group by o.OrderID, od.Quantity
   having count(o.OrderID) > 1
+order by o.OrderID
 
 -- 39
   ;with OrderIdCTE as

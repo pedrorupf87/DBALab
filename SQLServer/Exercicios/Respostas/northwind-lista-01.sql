@@ -61,21 +61,24 @@ CREATE TABLE #TEMP_UPDATE_PRICE
 	UnitPrice   DECIMAL(10,2)
 )
 
+-- A categoria é localizada pelo nome ('Seafood'), e não por um CategoryID fixo
 INSERT INTO #TEMP_UPDATE_PRICE
-SELECT ProductId,
-	   ProductName,
-	   UnitPrice
-  FROM Products
- WHERE CategoryID   = 8
-   AND Discontinued = 0
+SELECT p.ProductID,
+	   p.ProductName,
+	   p.UnitPrice
+  FROM Products   p
+  JOIN Categories c ON c.CategoryID = p.CategoryID
+ WHERE c.CategoryName = 'Seafood'
+   AND p.Discontinued = 0
 
 UPDATE t
    SET t.UnitPrice = 1.10 * UnitPrice
   FROM #TEMP_UPDATE_PRICE t
 
-SELECT ProductId, ProductName, UnitPrice
-  FROM Products
- WHERE CategoryID = 8 AND Discontinued = 0
+SELECT p.ProductID, p.ProductName, p.UnitPrice
+  FROM Products   p
+  JOIN Categories c ON c.CategoryID = p.CategoryID
+ WHERE c.CategoryName = 'Seafood' AND p.Discontinued = 0
 
 SELECT * FROM #TEMP_UPDATE_PRICE
 DROP TABLE #TEMP_UPDATE_PRICE
@@ -124,14 +127,18 @@ CREATE TABLE #TEMP_UPDATE_SHIPDATE
 	ShippedDate  DATE
 )
 
+-- O Northwind não tem coluna de status: "ainda não enviado" é ShippedDate nulo.
+-- O JOIN com Order Details garante que o pedido tem ao menos um item; o DISTINCT evita repetir o pedido a cada item
 INSERT INTO #TEMP_UPDATE_SHIPDATE
-SELECT o.OrderID,
+SELECT DISTINCT
+       o.OrderID,
        o.CustomerID,
 	   CAST(o.OrderDate AS DATE)    AS OrderDate,
 	   CAST(o.RequiredDate AS DATE) AS RequiredDate,
 	   CAST(o.ShippedDate AS DATE)  AS ShippedDate
-  FROM Orders o
- WHERE ShippedDate IS NULL
+  FROM Orders           o
+  JOIN [Order Details] od ON od.OrderID = o.OrderID
+ WHERE o.ShippedDate IS NULL
 
 UPDATE t
    SET t.ShippedDate = CAST(GETDATE() AS DATE)
@@ -291,14 +298,16 @@ CREATE TABLE #TEMP_CUSTOMERS_ORDERS
 	Country     VARCHAR(15)
 )
 
-INSERT INTO #TEMP_CUSTOMERS_ORDERS
-SELECT CustomerID,
-       CompanyName,
-	   City,
-	   Country
-  FROM Customers
- WHERE CustomerID NOT IN ( SELECT CustomerID 
-                             FROM Orders )
+-- LEFT JOIN + IS NULL: clientes sem nenhum pedido. Como não têm pedidos, a exclusão não quebra a integridade referencial.
+-- (NOT IN deixaria de retornar linhas se existisse algum CustomerID nulo em Orders)
+   INSERT INTO #TEMP_CUSTOMERS_ORDERS
+   SELECT c.CustomerID,
+          c.CompanyName,
+	      c.City,
+	      c.Country
+     FROM Customers c
+LEFT JOIN Orders    o ON o.CustomerID = c.CustomerID
+    WHERE o.OrderID IS NULL
 
 SELECT * FROM #TEMP_CUSTOMERS_ORDERS
 DROP TABLE #TEMP_CUSTOMERS_ORDERS

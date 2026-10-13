@@ -70,13 +70,14 @@ ORDER BY [Name]
 -- 05
 ------------------------------------------------------------------------------------------------------------------------------------------
 
+-- O enunciado pede ordem crescente de SubTotal
   SELECT SalesOrderID,
          CustomerID,
   	     OrderDate,
   	     SubTotal,
   	     ((TaxAmt / SubTotal) * 100) AS TaxPercent
     FROM Sales.SalesOrderHeader
-ORDER BY SubTotal DESC
+ORDER BY SubTotal ASC
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 06
@@ -146,11 +147,11 @@ ORDER BY p.LastName, p.FirstName
 -- 12
 ------------------------------------------------------------------------------------------------------------------------------------------
 
+-- Sem filtro: o enunciado não exclui os pedidos sem vendedor (SalesPersonID nulo)
   SELECT SalesPersonID,
          CustomerID,
 		 SUM(SubTotal) AS SumSubTotal
     FROM Sales.SalesOrderHeader
-   WHERE SalesPersonID IS NOT NULL
 GROUP BY ROLLUP (SalesPersonID, CustomerID)
 
 ------------------------------------------------------------------------------------------------------------------------------------------
@@ -231,14 +232,15 @@ ORDER BY ContactTypeID DESC
 -- 20
 ------------------------------------------------------------------------------------------------------------------------------------------
 
+-- O tipo de contato é localizado pelo nome, e não por um ContactTypeID fixo
   SELECT p.BusinessEntityID,
          p.LastName,
 		 p.FirstName
     FROM Person.BusinessEntityContact bec
 	JOIN Person.ContactType ct ON ct.ContactTypeID = bec.ContactTypeID
 	JOIN Person.Person p ON p.BusinessEntityID = bec.PersonID
-   WHERE ct.ContactTypeID = 15
-ORDER BY p.LastName
+   WHERE ct.[Name] = 'Purchasing Manager'
+ORDER BY p.LastName, p.FirstName
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 21
@@ -422,6 +424,7 @@ ORDER BY CASE WHEN CountryRegionName = 'United States' THEN TerritoryName
 	JOIN Sales.SalesPerson sp ON sp.BusinessEntityID = p.BusinessEntityID
 	JOIN Person.[Address]  a  ON a.AddressID = p.BusinessEntityID
    WHERE TerritoryID IS NOT NULL AND SalesYTD <> 0
+ORDER BY a.PostalCode
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 35
@@ -514,16 +517,17 @@ ORDER BY p.LastName, p.FirstName
 -- 43
 ------------------------------------------------------------------------------------------------------------------------------------------
 
-SELECT x.BusinessEntityID,
-       x.FirstName,
-	   x.LastName
-  FROM (SELECT BusinessEntityID,
-               PersonType,
-               FirstName,
-	           LastName
-          FROM Person.Person) x
- WHERE x.PersonType = 'IN'
-   AND x.LastName = 'Adams'
+  SELECT x.BusinessEntityID,
+         x.FirstName,
+	     x.LastName
+    FROM (SELECT BusinessEntityID,
+                 PersonType,
+                 FirstName,
+	             LastName
+            FROM Person.Person) x
+   WHERE x.PersonType = 'IN'
+     AND x.LastName = 'Adams'
+ORDER BY x.FirstName
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 44
@@ -590,8 +594,7 @@ SELECT AVG(CAST(NoOfOrders AS FLOAT)) AS "Average Sales Per Person"
 ------------------------------------------------------------------------------------------------------------------------------------------
 
 -- No LIKE, "_" é curinga de um caractere. Para procurar o sublinhado literal é preciso escapá-lo
-  SELECT ProductPhotoID,
-         LargePhotoFileName
+  SELECT *
     FROM Production.ProductPhoto
    WHERE LargePhotoFileName LIKE '%green\_%' ESCAPE '\'
 ORDER BY ProductPhotoID
@@ -681,28 +684,34 @@ ORDER BY ProductID
 -- 56
 ------------------------------------------------------------------------------------------------------------------------------------------
 
+-- "Pelo menos uma palavra começando com chain": no início do nome ou depois de um espaço
   SELECT [Name],
          Color
     FROM Production.[Product]
    WHERE [Name] LIKE 'Chain%'
+      OR [Name] LIKE '% Chain%'
 ORDER BY ProductID
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 57
 ------------------------------------------------------------------------------------------------------------------------------------------
 
+-- Palavra começando com chain ou full: no início do nome ou depois de um espaço
   SELECT [Name],
          Color
     FROM Production.[Product]
    WHERE [Name] LIKE 'Chain%'
+      OR [Name] LIKE '% Chain%'
       OR [Name] LIKE 'Full%'
+      OR [Name] LIKE '% Full%'
 ORDER BY ProductID
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 58
 ------------------------------------------------------------------------------------------------------------------------------------------
 
-  SELECT CONCAT(p.FirstName, p.LastName, CHAR(13), CHAR(10), ea.EmailAddress) AS PersonEmailAddress
+-- Nome e sobrenome separados por espaço; o e-mail vem na linha seguinte
+  SELECT CONCAT(p.FirstName, ' ', p.LastName, CHAR(13), CHAR(10), ea.EmailAddress) AS PersonEmailAddress
     FROM Person.Person       p
 	JOIN Person.EmailAddress ea ON ea.BusinessEntityID = p.BusinessEntityID
 ORDER BY p.BusinessEntityID
@@ -914,9 +923,10 @@ SELECT [Name],
 -- 81
 ------------------------------------------------------------------------------------------------------------------------------------------
 
+-- ROUND explícito: o enunciado pede o valor arredondado para o inteiro mais próximo
 SELECT SalesYTD,
        CommissionPct,
-	   CAST((SalesYTD / CommissionPct) AS INT) AS Computed
+	   CAST(ROUND(SalesYTD / CommissionPct, 0) AS INT) AS Computed
   FROM Sales.SalesPerson
  WHERE CommissionPct IS NOT NULL
    AND CommissionPct <> 0
@@ -925,13 +935,14 @@ SELECT SalesYTD,
 -- 82
 ------------------------------------------------------------------------------------------------------------------------------------------
 
+-- Conversão explícita pedida no enunciado: SalesYTD para INT e depois para CHAR(20)
 SELECT p.FirstName,
        p.LastName,
 	   sp.SalesYTD,
 	   p.BusinessEntityID
   FROM Person.Person     p
   JOIN Sales.SalesPerson sp ON sp.BusinessEntityID = p.BusinessEntityID
- WHERE sp.SalesYTD LIKE '2%'
+ WHERE CAST(CAST(sp.SalesYTD AS INT) AS CHAR(20)) LIKE '2%'
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 83
@@ -1060,7 +1071,8 @@ GROUP BY JobTitle
 -- 95
 ------------------------------------------------------------------------------------------------------------------------------------------
 
-  SELECT COUNT(ProductID) AS ProductCount,
+-- Produtos DIFERENTES em cada pedido
+  SELECT COUNT(DISTINCT ProductID) AS ProductCount,
          SalesOrderID
     FROM Sales.SalesOrderDetail
    WHERE SalesOrderID IN (43855, 43661)

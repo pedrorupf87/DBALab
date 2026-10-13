@@ -53,7 +53,8 @@ CREATE TABLE #TEMP_02
     ProductId    INT,
     ProductName  VARCHAR(50),
     UnitsInStock INT,
-    UnitPrice    MONEY
+    OldUnitPrice MONEY,
+    NewUnitPrice MONEY
 )
 
 DECLARE DiscountCursor CURSOR FOR
@@ -69,25 +70,15 @@ FETCH NEXT FROM DiscountCursor INTO @ProductId02, @ProductName02, @UnitsInStock0
 
 WHILE @@FETCH_STATUS = 0
 BEGIN
+    -- O desconto de 10% é aplicado dentro do cursor, produto a produto
     INSERT INTO #TEMP_02
-    VALUES ( @ProductId02, @ProductName02, @UnitsInStock02, @UnitPrice02 )
+    VALUES ( @ProductId02, @ProductName02, @UnitsInStock02, @UnitPrice02, @UnitPrice02 * 0.9 )
 
     FETCH NEXT FROM DiscountCursor INTO @ProductId02, @ProductName02, @UnitsInStock02, @UnitPrice02
 END
 
 CLOSE DiscountCursor
 DEALLOCATE DiscountCursor
-
-UPDATE t
-   SET t.UnitPrice = t.UnitPrice * 0.9
-  FROM #TEMP_02 t
-
-SELECT ProductID,
-       ProductName,
-       UnitsInStock,
-       UnitPrice
-  FROM Products
- WHERE UnitsInStock > 50
 
 SELECT * FROM #TEMP_02
 DROP TABLE #TEMP_02
@@ -96,31 +87,36 @@ DROP TABLE #TEMP_02
 -- 03
 ------------------------------------------------------------------------------------------------------------------------------------------
 
-DECLARE @CustomerId03   CHAR(5),
-        @TotalFreight03 MONEY
+DECLARE @CustomerId03  CHAR(5),
+        @QtyOrders03   INT,
+        @TotalOrders03 MONEY
 
 DROP TABLE IF EXISTS #TEMP_03
 CREATE TABLE #TEMP_03
 (
-    CustomerId   CHAR(5),
-    TotalFreight MONEY
+    CustomerId  CHAR(5),
+    QtyOrders   INT,
+    TotalOrders MONEY
 )
 
+-- Totais de pedido por cliente: quantidade de pedidos e valor dos itens (Order Details). Freight é só o frete
 DECLARE TotalByCustomerCursor CURSOR FOR
-  SELECT CustomerID,
-         SUM(Freight)
-    FROM Orders
-GROUP BY CustomerID
+  SELECT o.CustomerID,
+         COUNT( DISTINCT o.OrderID )                             AS QtyOrders,
+         SUM( od.Quantity * od.UnitPrice * ( 1 - od.Discount ) ) AS TotalOrders
+    FROM Orders           o
+    JOIN [Order Details] od ON od.OrderID = o.OrderID
+GROUP BY o.CustomerID
 
 OPEN TotalByCustomerCursor
-FETCH NEXT FROM TotalByCustomerCursor INTO @CustomerId03, @TotalFreight03
+FETCH NEXT FROM TotalByCustomerCursor INTO @CustomerId03, @QtyOrders03, @TotalOrders03
 
 WHILE @@FETCH_STATUS = 0
 BEGIN
     INSERT INTO #TEMP_03
-    VALUES ( @CustomerId03, @TotalFreight03 )
+    VALUES ( @CustomerId03, @QtyOrders03, @TotalOrders03 )
 
-    FETCH NEXT FROM TotalByCustomerCursor INTO @CustomerId03, @TotalFreight03
+    FETCH NEXT FROM TotalByCustomerCursor INTO @CustomerId03, @QtyOrders03, @TotalOrders03
 END
 
 CLOSE TotalByCustomerCursor
@@ -173,14 +169,14 @@ DROP TABLE #TEMP_04
 -- 05
 ------------------------------------------------------------------------------------------------------------------------------------------
 
-DECLARE @CategoryId05   CHAR(5),
+DECLARE @CategoryId05   INT,
         @CategoryName05 VARCHAR(40),
-        @AvgPrice05     MONEY       
+        @AvgPrice05     MONEY
 
 DROP TABLE IF EXISTS #TEMP_05
 CREATE TABLE #TEMP_05
 (
-    CategoryId   CHAR(5),
+    CategoryId   INT,
     CategoryName VARCHAR(40),
     AvgPrice     MONEY
 )
@@ -207,7 +203,18 @@ END
 CLOSE AvgPriceCursor
 DEALLOCATE AvgPriceCursor
 
+-- Média de preço por categoria
 SELECT * FROM #TEMP_05
+
+-- Produtos de cada categoria, com a média da categoria ao lado
+  SELECT t.CategoryName,
+         p.ProductName,
+         p.UnitPrice,
+         t.AvgPrice
+    FROM Products p
+    JOIN #TEMP_05 t ON t.CategoryId = p.CategoryID
+ORDER BY t.CategoryName, p.ProductName
+
 DROP TABLE #TEMP_05
 
 ------------------------------------------------------------------------------------------------------------------------------------------

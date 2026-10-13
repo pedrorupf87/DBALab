@@ -208,14 +208,15 @@ FETCH NEXT FROM UpdatePriceCursor INTO @ProductName05, @SupplierId05, @UnitPrice
 
 WHILE @@FETCH_STATUS = 0
 BEGIN
+    --## DESCONTO DIFERENCIADO POR FORNECEDOR: 10%, 20% E 30% ##--
     INSERT INTO #TEMP_05
     VALUES ( @ProductName05,
              @SupplierId05,
-             CASE WHEN @SupplierId05 = 1 THEN @UnitPrice05 * 1.1
-                  WHEN @SupplierId05 = 2 THEN @UnitPrice05 * 1.2
-                  WHEN @SupplierId05 = 3 THEN @UnitPrice05 * 1.3
+             CASE WHEN @SupplierId05 = 1 THEN @UnitPrice05 * 0.9
+                  WHEN @SupplierId05 = 2 THEN @UnitPrice05 * 0.8
+                  WHEN @SupplierId05 = 3 THEN @UnitPrice05 * 0.7
                   ELSE @UnitPrice05
-                  END    
+                  END
            )
 
     FETCH NEXT FROM UpdatePriceCursor INTO @ProductName05, @SupplierId05, @UnitPrice05
@@ -237,32 +238,38 @@ DROP TABLE #TEMP_05
 -- 06
 ------------------------------------------------------------------------------------------------------------------------------------------
 
-DECLARE @FullName06 VARCHAR(50),
-        @OrderId06  INT
+--## MEDIA DE PEDIDOS PROCESSADOS = PEDIDOS DO FUNCIONARIO DIVIDIDOS PELOS MESES EM QUE ELE ATENDEU PEDIDOS ##--
+
+DECLARE @FullName06  VARCHAR(50),
+        @QtyOrders06 INT,
+        @QtyMonths06 INT
 
 DROP TABLE IF EXISTS #TEMP_06
 CREATE TABLE #TEMP_06
 (
-    FullName VARCHAR(50),
-    QtyOrder INT
+    FullName          VARCHAR(50),
+    QtyOrders         INT,
+    QtyMonths         INT,
+    AvgOrdersPerMonth DECIMAL(10,2)
 )
 
 DECLARE QtyOrdersEmployeeCursor CURSOR FOR
-  SELECT e.FirstName + ' ' + e.LastName AS FullName,
-         COUNT( o.OrderID ) AS QtyOrders
+  SELECT e.FirstName + ' ' + e.LastName                                   AS FullName,
+         COUNT( o.OrderID )                                               AS QtyOrders,
+         COUNT( DISTINCT YEAR(o.OrderDate) * 100 + MONTH(o.OrderDate) )   AS QtyMonths
     FROM Employees e
     JOIN Orders    o ON o.EmployeeID = e.EmployeeID
 GROUP BY e.FirstName, e.LastName
 
 OPEN QtyOrdersEmployeeCursor
-FETCH NEXT FROM QtyOrdersEmployeeCursor INTO @FullName06, @OrderId06
+FETCH NEXT FROM QtyOrdersEmployeeCursor INTO @FullName06, @QtyOrders06, @QtyMonths06
 
 WHILE @@FETCH_STATUS = 0
 BEGIN
     INSERT INTO #TEMP_06
-    VALUES ( @FullName06, @OrderId06 )
+    VALUES ( @FullName06, @QtyOrders06, @QtyMonths06, @QtyOrders06 * 1.0 / @QtyMonths06 )
 
-    FETCH NEXT FROM QtyOrdersEmployeeCursor INTO @FullName06, @OrderId06
+    FETCH NEXT FROM QtyOrdersEmployeeCursor INTO @FullName06, @QtyOrders06, @QtyMonths06
 END
 
 CLOSE QtyOrdersEmployeeCursor
@@ -468,17 +475,31 @@ DEALLOCATE DelayedOrdersCursor
 -- 11
 ------------------------------------------------------------------------------------------------------------------------------------------
 
-      SELECT Orders.OrderID,
-             Orders.CustomerID,
-             Orders.OrderDate,
-             (      SELECT [Order Details].ProductID,
-                           [Order Details].UnitPrice,
-                           [Order Details].Quantity
-                      FROM [Order Details]
-                     WHERE [Order Details].OrderID = Orders.OrderID
-              FOR XML PATH ('OrderDetail'), TYPE ) AS OrderDetails
-        FROM Orders
-FOR XML PATH ('Order'), ROOT('Orders')
+--## O XML E ARMAZENADO EM UMA COLUNA XML DE UMA TABELA DE LOG (TEMPORARIA) ##--
+
+DROP TABLE IF EXISTS #TEMP_11
+CREATE TABLE #TEMP_11
+(
+    LogDate   DATETIME,
+    OrdersXml XML
+)
+
+INSERT INTO #TEMP_11 ( LogDate, OrdersXml )
+SELECT GETDATE(),
+       (      SELECT Orders.OrderID,
+                     Orders.CustomerID,
+                     Orders.OrderDate,
+                     (      SELECT [Order Details].ProductID,
+                                   [Order Details].UnitPrice,
+                                   [Order Details].Quantity
+                              FROM [Order Details]
+                             WHERE [Order Details].OrderID = Orders.OrderID
+                      FOR XML PATH ('OrderDetail'), TYPE ) AS OrderDetails
+                FROM Orders
+        FOR XML PATH ('Order'), ROOT('Orders'), TYPE )
+
+SELECT * FROM #TEMP_11
+DROP TABLE #TEMP_11
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 12
@@ -541,6 +562,16 @@ FOR XML PATH ('Supplier'), ROOT ('Suppliers')
 ------------------------------------------------------------------------------------------------------------------------------------------
 
 --## PARA NAO IMPLICAR EM ERROS NO SCRIPT, NAO SERA ADOTADA A CRIACAO DE UM PROCEDURE ##--
+--## PARA NAO ALTERAR A BASE, OS NOVOS CLIENTES SAO INSERIDOS EM UMA TABELA TEMPORARIA ##--
+
+DROP TABLE IF EXISTS #TEMP_14
+CREATE TABLE #TEMP_14
+(
+    CustomerId  CHAR(5),
+    CompanyName VARCHAR(50),
+    City        VARCHAR(30),
+    Country     VARCHAR(30)
+)
 
 DECLARE @XMLData14 XML =
         '<Customers>
@@ -558,11 +589,15 @@ DECLARE @XMLData14 XML =
             </Customer>
          </Customers>'
 
+INSERT INTO #TEMP_14 ( CustomerId, CompanyName, City, Country )
 SELECT T.C.value( '(CustomerId)[1]' , 'CHAR(5)'     ) AS CustomerId,
        T.C.value( '(CompanyName)[1]', 'VARCHAR(50)' ) AS CompanyName,
        T.C.value( '(City)[1]'       , 'VARCHAR(30)' ) AS City,
        T.C.value( '(Country)[1]'    , 'VARCHAR(30)' ) AS Country
   FROM @XMLData14.nodes('/Customers/Customer') AS T(C)
+
+SELECT * FROM #TEMP_14
+DROP TABLE #TEMP_14
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 15
@@ -851,8 +886,10 @@ CREATE TABLE #TEMP_23
     JsonData NVARCHAR(MAX)
 )
 
-SET @JsonData23 = 
-(        SELECT TOP 10 
+--## TOP SO E DETERMINISTICO COM ORDER BY: SAO OS 10 PRIMEIROS PEDIDOS ##--
+
+SET @JsonData23 =
+(        SELECT TOP 10
                 o.OrderID,
                 o.CustomerID,
                 o.OrderDate,
@@ -868,6 +905,7 @@ SET @JsonData23 =
                 s.CompanyName
            FROM Orders   o
            JOIN Shippers s ON s.ShipperID = o.ShipVia
+       ORDER BY o.OrderID
   FOR JSON PATH
 )
 
@@ -919,21 +957,30 @@ DROP TABLE #TEMP_24
 -- 25
 ------------------------------------------------------------------------------------------------------------------------------------------
 
-DECLARE @JsonData25 NVARCHAR(MAX)
-SET @JsonData25 = 
+--## O HISTORICO DE CADA CLIENTE E CONVERTIDO PARA JSON E ARMAZENADO EM UMA TABELA DE LOG (TEMPORARIA), UMA LINHA POR CLIENTE ##--
+
+DROP TABLE IF EXISTS #TEMP_25
+CREATE TABLE #TEMP_25
 (
-       SELECT CustomerID,
-              (       SELECT OrderID, 
-                             OrderDate, 
-                             Freight
-                        FROM Orders
-                       WHERE Orders.CustomerID = Customers.CustomerID
-               FOR JSON AUTO ) AS OrderHistory
-         FROM Customers
-FOR JSON AUTO
+    CustomerId   CHAR(5),
+    OrderHistory NVARCHAR(MAX),
+    LogDate      DATETIME
 )
 
-SELECT @JsonData25 AS JsonData
+INSERT INTO #TEMP_25 ( CustomerId, OrderHistory, LogDate )
+SELECT Customers.CustomerID,
+       (       SELECT OrderID,
+                      OrderDate,
+                      Freight
+                 FROM Orders
+                WHERE Orders.CustomerID = Customers.CustomerID
+             ORDER BY OrderID
+        FOR JSON AUTO ),
+       GETDATE()
+  FROM Customers
+
+SELECT * FROM #TEMP_25
+DROP TABLE #TEMP_25
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 --## PENDENTE: EXERCICIOS 26 A 40 ##--

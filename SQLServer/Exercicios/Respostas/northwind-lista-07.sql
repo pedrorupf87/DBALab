@@ -241,8 +241,10 @@ DROP TABLE #TEMP_05
 -- 06
 ------------------------------------------------------------------------------------------------------------------------------------------
 
-DECLARE @SupplierId06 INT, 
-        @Phone06      VARCHAR(30)
+DECLARE @SupplierId06 INT,
+        @Phone06      VARCHAR(30),
+        @Digits06     VARCHAR(30),
+        @NewPhone06   VARCHAR(30)
 
 DROP TABLE IF EXISTS #TEMP_06
 CREATE TABLE #TEMP_06
@@ -263,10 +265,18 @@ FETCH NEXT FROM Cursor06 INTO @SupplierId06, @Phone06
 WHILE @@FETCH_STATUS = 0
 BEGIN
 	BEGIN TRY
-		DECLARE @NewPhone06 VARCHAR(30) = '+55 - ' + REPLACE(@Phone06, ' ', '')
+		-- Mantém só os dígitos: remove espaços, parênteses, hífens e pontos
+		SET @Digits06 = REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(@Phone06, ' ', ''), '(', ''), ')', ''), '-', ''), '.', '')
+
+		-- Telefone inválido: nulo, com caractere que não é dígito ou com menos de 8 dígitos
+		IF (@Digits06 IS NULL OR @Digits06 LIKE '%[^0-9]%' OR LEN(@Digits06) < 8)
+			THROW 50001, 'Telefone inválido para o formato padronizado', 1
+
+		-- Formato padronizado +XX-XXXX-XXXX: os 4 últimos dígitos formam o último bloco
+		SET @NewPhone06 = '+55-' + LEFT(@Digits06, LEN(@Digits06) - 4) + '-' + RIGHT(@Digits06, 4)
 
 		INSERT INTO #TEMP_06
-		VALUES (@SupplierId06, @Phone06, @NewPhone06)		
+		VALUES (@SupplierId06, @Phone06, @NewPhone06)
 	END TRY
 	BEGIN CATCH
 		PRINT 'Erro ao inserir o fornecedor ' + CAST(@SupplierId06 AS VARCHAR) + ': ' + ERROR_MESSAGE()
@@ -1208,7 +1218,8 @@ ORDER BY PriceVariation DESC
 )
 , CTE33_GERAL AS
 (
-	SELECT AVG(OrderByEmployee) AS AvgOrderEmployee
+	-- CAST para FLOAT: AVG de um inteiro devolve inteiro e descartaria a parte decimal da média
+	SELECT AVG(CAST(OrderByEmployee AS FLOAT)) AS AvgOrderEmployee
 	  FROM CTE33
 )
 	SELECT e.EmployeeID,
@@ -1418,7 +1429,7 @@ ORDER BY CategoryID, TotalSold DESC
 ------------------------------------------------------------------------------------------------------------------------------------------
 
 DROP TABLE IF EXISTS #TEMP_41
-CREATE TABLE #TEMP_41 
+CREATE TABLE #TEMP_41
 (
     ProductID    INT,
     OldPrice     DECIMAL(10,2),
@@ -1427,7 +1438,7 @@ CREATE TABLE #TEMP_41
 )
 
 DROP TABLE IF EXISTS #TEMP_41_LOG
-CREATE TABLE #TEMP_41_LOG 
+CREATE TABLE #TEMP_41_LOG
 (
     ProductID    INT,
     OldPrice     DECIMAL(10,2),
@@ -1438,7 +1449,7 @@ CREATE TABLE #TEMP_41_LOG
 
 BEGIN TRY
     BEGIN TRAN
-    
+
 	INSERT INTO #TEMP_41
 	SELECT ProductID,
 	       UnitPrice          AS OldPrice,
@@ -1447,7 +1458,8 @@ BEGIN TRY
 	  FROM Products
      WHERE UnitPrice > 0
 
-    IF EXISTS (SELECT 1 FROM Products WHERE UnitPrice < 0)
+    -- A validação olha o preço NOVO, gravado na temporária (em Products o preço não mudou)
+    IF EXISTS (SELECT 1 FROM #TEMP_41 WHERE NewPrice < 0)
         THROW 50001, 'Preço negativo detectado após atualização.', 1
 
     COMMIT TRAN
@@ -1457,7 +1469,7 @@ BEGIN CATCH
 
     INSERT INTO #TEMP_41_LOG (ProductID, OldPrice, NewPrice, UpdateDate, ErrorMessage)
     VALUES (NULL, NULL, NULL, GETDATE(), ERROR_MESSAGE())
-    
+
 	PRINT 'Erro: ' + ERROR_MESSAGE()
 END CATCH
 
@@ -1583,8 +1595,9 @@ DROP TABLE #TEMP_43_LOG
 -- 44
 ------------------------------------------------------------------------------------------------------------------------------------------
 
-DECLARE @OrderId44     INT,
-        @ShippedDate44 DATETIME
+DECLARE @OrderId44        INT,
+        @ShippedDate44    DATETIME,
+        @NewShippedDate44 DATETIME
 
 DROP TABLE IF EXISTS #TEMP_44
 CREATE TABLE #TEMP_44
@@ -1603,10 +1616,13 @@ CREATE TABLE #TEMP_44_LOG
 	LogMessage  VARCHAR(MAX)
 )
 
+-- Tentativa pedida no enunciado: gravar uma data FUTURA em ShippedDate (aqui, um ano à frente) nos pedidos ainda não enviados.
+-- A validação rejeita a data e cada tentativa fica registrada no log
 DECLARE Cursor44 CURSOR FOR
 SELECT OrderID,
        ShippedDate
   FROM Orders
+ WHERE ShippedDate IS NULL
 
 OPEN Cursor44
 FETCH NEXT FROM Cursor44 INTO @OrderId44, @ShippedDate44
@@ -1616,11 +1632,13 @@ BEGIN
 	BEGIN TRY
 		BEGIN TRAN
 
-		IF (@ShippedDate44 > GETDATE())
+		SET @NewShippedDate44 = DATEADD(YEAR, 1, GETDATE())
+
+		IF (@NewShippedDate44 > GETDATE())
 			THROW 50001, 'Data do produto enviado não pode ser superior à data atual', 1
-		
+
 		INSERT INTO #TEMP_44 (OrderId, ShippedDate, UpdatedDate)
-		VALUES (@OrderId44, @ShippedDate44, GETDATE())
+		VALUES (@OrderId44, @NewShippedDate44, GETDATE())
 
 		COMMIT TRAN
 	END TRY
@@ -1629,7 +1647,7 @@ BEGIN
 		ROLLBACK TRAN
 
 		INSERT INTO #TEMP_44_LOG (OrderId, ShippedDate, UpdatedDate, LogMessage)
-		VALUES (@OrderId44, @ShippedDate44, GETDATE(), 'Erro: ' + ERROR_MESSAGE() + '. OrderId: ' + CAST(@OrderId44 AS VARCHAR))
+		VALUES (@OrderId44, @NewShippedDate44, GETDATE(), 'Erro: ' + ERROR_MESSAGE() + '. OrderId: ' + CAST(@OrderId44 AS VARCHAR))
 	END CATCH
 
 	FETCH NEXT FROM Cursor44 INTO @OrderId44, @ShippedDate44
@@ -1899,8 +1917,9 @@ DROP TABLE #TEMP_49_LOG
 -- 50
 ------------------------------------------------------------------------------------------------------------------------------------------
 
-DECLARE @EmployeeId50 INT,
-        @HireDate50   DATETIME
+DECLARE @EmployeeId50  INT,
+        @HireDate50    DATETIME,
+        @NewHireDate50 DATE
 
 DROP TABLE IF EXISTS #TEMP_50
 CREATE TABLE #TEMP_50
@@ -1922,13 +1941,11 @@ FETCH NEXT FROM Cursor50 INTO @EmployeeId50, @HireDate50
 WHILE @@FETCH_STATUS = 0
 BEGIN
 	BEGIN TRY
-		IF (CAST(@HireDate50 AS DATE) IS NULL)
-			THROW 50001, 'DATA NULA', 1
+		-- Tentativa pedida no enunciado: trocar HireDate por uma data inválida. Aqui, o dia 31 do mesmo mês:
+		-- nos meses com menos de 31 dias a data não existe, o DATEFROMPARTS gera erro e o erro é registrado
+		SET @NewHireDate50 = DATEFROMPARTS(YEAR(@HireDate50), MONTH(@HireDate50), 31)
 
-		IF (CAST(@HireDate50 AS DATE) < '2000-01-01')
-			THROW 50002, 'DATA MENOR QUE 1999', 1
-
-		PRINT 'FUNCIONOU'
+		PRINT 'FUNCIONOU: funcionário ' + CAST(@EmployeeId50 AS VARCHAR) + ' -> ' + CONVERT(VARCHAR(10), @NewHireDate50, 23)
 	END TRY
 
 	BEGIN CATCH

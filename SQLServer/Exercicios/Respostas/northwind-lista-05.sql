@@ -43,11 +43,16 @@ SELECT CustomerID,
 -- 03
 ------------------------------------------------------------------------------------------------------------------------------------------
 
-SELECT p.CategoryID,
-       p.ProductName,
-       SUM(od.Quantity * od.UnitPrice) OVER (PARTITION BY p.CategoryID ORDER BY od.OrderID) AS TotalPrice
-  FROM [Order Details] od
-  JOIN Products p ON p.ProductID = od.ProductID
+--## VENDAS TOTALIZADAS POR PRODUTO; A SOMA ACUMULA PRODUTO A PRODUTO DENTRO DE CADA CATEGORIA ##--
+
+  SELECT p.CategoryID,
+         p.ProductName,
+         SUM(od.Quantity * od.UnitPrice)                                                                                   AS TotalProduct,
+         SUM(SUM(od.Quantity * od.UnitPrice)) OVER (PARTITION BY p.CategoryID ORDER BY p.ProductName ROWS UNBOUNDED PRECEDING) AS TotalPrice
+    FROM [Order Details] od
+    JOIN Products         p ON p.ProductID = od.ProductID
+GROUP BY p.CategoryID, p.ProductName
+ORDER BY p.CategoryID, p.ProductName
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 04
@@ -499,7 +504,10 @@ CROSS APPLY ( SELECT SUM(ov2.OrderValue) AS Total30Days
 -- 34
 ------------------------------------------------------------------------------------------------------------------------------------------
 
-SELECT CustomerID,
+--## DISTINCT: UMA LINHA POR CLIENTE E ANO, EM VEZ DE UMA LINHA POR PEDIDO ##--
+
+SELECT DISTINCT
+       CustomerID,
        YEAR(OrderDate)                                                              AS [Year],
        CAST(MIN(OrderDate) OVER (PARTITION BY CustomerID, YEAR(OrderDate)) AS DATE) AS FirstOrder,
        CAST(MAX(OrderDate) OVER (PARTITION BY CustomerID, YEAR(OrderDate)) AS DATE) AS LastOrder

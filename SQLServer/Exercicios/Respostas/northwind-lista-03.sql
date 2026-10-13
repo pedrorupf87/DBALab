@@ -76,14 +76,22 @@ CREATE TABLE #RESULT_TEMP_02
 BEGIN TRAN
 
 BEGIN TRY
-	DECLARE @SQL02 NVARCHAR(MAX)
+	DECLARE @SQL02           NVARCHAR(MAX),
+	        @NewCustomerId02 CHAR(5) = 'TESTE'
+	--DECLARE @SQL02           NVARCHAR(MAX),
+	--        @NewCustomerId02 CHAR(5) = 'ALFKI'	-- Cenario de cliente ja cadastrado
+
+	-- Validação pedida no enunciado: o cliente não pode já existir em Customers
+	IF EXISTS ( SELECT 1 FROM Customers WHERE CustomerID = @NewCustomerId02 )
+		THROW 50001, 'Cliente já cadastrado.', 1
+
 	SET @SQL02 = N'
 	    INSERT INTO #RESULT_TEMP_02
 		VALUES ( @CustomerId02, @CompanyName02, @City02, @Country02 )'
 
-	EXEC sp_executesql @SQL02, 
+	EXEC sp_executesql @SQL02,
 	                   N'@CustomerId02 CHAR(5), @CompanyName02 VARCHAR(50), @City02 VARCHAR(15), @Country02 VARCHAR(15)',
-					   @CustomerId02 = 'TESTE', @CompanyName02 = 'PAPEL DE PÃO S/A', @City02 = 'VARGINHA', @Country02 = 'Brazil'
+					   @CustomerId02 = @NewCustomerId02, @CompanyName02 = 'PAPEL DE PÃO S/A', @City02 = 'VARGINHA', @Country02 = 'Brazil'
 
 	COMMIT TRAN
 END TRY
@@ -215,7 +223,7 @@ DROP TABLE #TEMP_LOG_04
 -- 05
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- ## PARA NAO ALTERAR A BASE, IREI INSERIR OS REGISTROS EM UMA TEMPORARIA, PARA DEPOIS APRESENTAR
+-- ## PARA NAO ALTERAR A BASE, A EXCLUSAO E FEITA EM UMA COPIA TEMPORARIA DE ORDERS
 
 DROP TABLE IF EXISTS #TEMP_LOG_05
 CREATE TABLE #TEMP_LOG_05
@@ -229,21 +237,27 @@ CREATE TABLE #RESULT_TEMP_05
 (
     OrderId    INT,
 	CustomerId CHAR(5),
+	OrderDate  DATETIME,
 	Freight    MONEY
 )
+
+INSERT INTO #RESULT_TEMP_05
+SELECT OrderID,
+       CustomerID,
+       OrderDate,
+       Freight
+  FROM Orders
 
 BEGIN TRAN
 
 BEGIN TRY
 	DECLARE @SQL05 NVARCHAR(MAX)
-	SET @SQL05 = N'
-	    SELECT OrderID,
-               CustomerID,
-	           Freight
-          FROM Orders
-         WHERE OrderDate < @EndDate05'
 
-	INSERT INTO #RESULT_TEMP_05
+	-- Pedidos antigos = anteriores à data informada pelo usuário
+	SET @SQL05 = N'
+	    DELETE FROM #RESULT_TEMP_05
+	          WHERE OrderDate < @EndDate05'
+
 	EXEC sp_executesql @SQL05,
 	                   N'@EndDate05 DATETIME',
 					   @EndDate05 = '19970630'
@@ -252,13 +266,14 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
 	ROLLBACK TRAN
-	
+
 	INSERT INTO #TEMP_LOG_05
 	VALUES ( ERROR_MESSAGE(), GETDATE() )
 END CATCH
 
-
-SELECT * FROM #RESULT_TEMP_05
+SELECT ( SELECT COUNT(*) FROM Orders )          AS TotalOrders,
+       ( SELECT COUNT(*) FROM #RESULT_TEMP_05 ) AS RemainingOrders,
+       ( SELECT MIN(OrderDate) FROM #RESULT_TEMP_05 ) AS OldestRemainingOrder
 
 DROP TABLE #RESULT_TEMP_05
 SELECT * FROM #TEMP_LOG_05
