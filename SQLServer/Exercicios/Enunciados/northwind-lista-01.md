@@ -5,11 +5,12 @@
 1. **Inserção Condicional em Tabelas**
    - Insira os registros de novos produtos na tabela `Products` somente se não existirem produtos com o mesmo nome já cadastrados. Use a tabela temporária abaixo como base para os dados a serem inseridos:
      ```sql
-     CREATE TABLE #NovosProdutos (
+     CREATE TABLE #NovosProdutos
+     (
          ProductName NVARCHAR(50),
-         SupplierID INT,
-         CategoryID INT,
-         UnitPrice DECIMAL(10, 2)
+         SupplierID  INT,
+         CategoryID  INT,
+         UnitPrice   DECIMAL(10, 2)
      );
 
      INSERT INTO #NovosProdutos (ProductName, SupplierID, CategoryID, UnitPrice)
@@ -143,4 +144,3 @@ Crie um procedimento que percorra as categorias na tabela `Categories`, calcule 
 
 ### 30. Migração de Pedidos para Arquivo**  
 Implemente um procedimento que percorra pedidos concluídos (`Orders`) há mais de 10 anos e os mova para uma tabela de arquivo (`ArchivedOrders`), junto com seus itens. Use transação para mover os dados com integridade e implemente rollback se qualquer etapa falhar.
-4. **Boa Prática**: Sempre libere os cursores com `CLOSE` e `DEALLOCATE`.

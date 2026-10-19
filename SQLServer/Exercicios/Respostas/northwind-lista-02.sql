@@ -1,5 +1,5 @@
 ﻿
-USE NORTHWIND
+USE Northwind
 GO
 
 ------------------------------------------------------------------------------------------------------------------------------------------
@@ -99,7 +99,6 @@ CREATE TABLE #TEMP_03
     TotalOrders MONEY
 )
 
--- Totais de pedido por cliente: quantidade de pedidos e valor dos itens (Order Details). Freight é só o frete
 DECLARE TotalByCustomerCursor CURSOR FOR
   SELECT o.CustomerID,
          COUNT( DISTINCT o.OrderID )                             AS QtyOrders,
@@ -130,7 +129,6 @@ DROP TABLE #TEMP_03
 ------------------------------------------------------------------------------------------------------------------------------------------
 
 -- Irei adotar como ultimo ano igual a 1998
--- Inativo = cliente SEM nenhum pedido nos últimos dois anos (NOT EXISTS), incluindo quem nunca comprou
 
 DECLARE @CustomerId04 CHAR(5)
 
@@ -142,12 +140,12 @@ CREATE TABLE #TEMP_04
 )
 
 DECLARE CustomerInactiveCursor CURSOR FOR
-SELECT c.CustomerID
-  FROM Customers c
- WHERE NOT EXISTS ( SELECT 1
-                      FROM Orders o
-                     WHERE o.CustomerID = c.CustomerID
-                       AND o.OrderDate >= DATEADD( YEAR, -2, '19981231' ) )
+ SELECT c.CustomerID
+   FROM Customers c
+  WHERE NOT EXISTS ( SELECT 1
+                       FROM Orders o
+                      WHERE o.CustomerID = c.CustomerID
+                        AND o.OrderDate >= DATEADD( YEAR, -2, '19981231' ) )
 
 OPEN CustomerInactiveCursor
 FETCH NEXT FROM CustomerInactiveCursor INTO @CustomerId04
@@ -272,7 +270,6 @@ CREATE TABLE #TEMP_07
     TotalOrders INT
 )
 
--- Cursor sobre os anos distintos; o total de pedidos de cada ano é contado dentro do loop
 DECLARE TotalOrdersYearCursor CURSOR FOR
   SELECT DISTINCT
          YEAR(OrderDate) AS OrderYear
@@ -358,9 +355,9 @@ CREATE TABLE #TEMP_09
 )
 
 DECLARE CustomersCursor CURSOR FOR  
-SELECT DISTINCT 
-       CustomerID  
-  FROM Orders
+ SELECT DISTINCT 
+        CustomerID  
+   FROM Orders
 
 OPEN CustomersCursor
 FETCH NEXT FROM CustomersCursor INTO @CustomerId09
@@ -368,10 +365,10 @@ FETCH NEXT FROM CustomersCursor INTO @CustomerId09
 WHILE @@FETCH_STATUS = 0  
 BEGIN  
     DECLARE OrdersCursor CURSOR FOR  
-    SELECT OrderID, 
-           YEAR(OrderDate) AS OrderYear  
-      FROM Orders  
-     WHERE CustomerID = @CustomerId09
+     SELECT OrderID, 
+            YEAR(OrderDate) AS OrderYear  
+       FROM Orders  
+      WHERE CustomerID = @CustomerId09
 
     OPEN OrdersCursor
     FETCH NEXT FROM OrdersCursor INTO @OrderId09, @OrderYear09
@@ -410,7 +407,6 @@ CREATE TABLE #TEMP_10
     TotalPrice MONEY
 )
 
--- O valor total é do PEDIDO: soma de todos os itens (quantidade x preço unitário) de cada OrderID
 DECLARE TotalPriceCursor CURSOR FOR
   SELECT OrderID,
          SUM( Quantity * UnitPrice ) AS TotalPrice
@@ -449,11 +445,10 @@ CREATE TABLE #TEMP_11
     TotalSales MONEY
 )
 
--- Vendas = valor dos itens dos pedidos (Order Details). Freight é só o frete
 DECLARE TotalByEmployeeCursor CURSOR FOR
   SELECT o.EmployeeID,
          SUM( od.Quantity * od.UnitPrice * ( 1 - od.Discount ) ) AS TotalSales
-    FROM Orders           o
+    FROM Orders          o
     JOIN [Order Details] od ON od.OrderID = o.OrderID
 GROUP BY o.EmployeeID
 ORDER BY o.EmployeeID
@@ -500,22 +495,20 @@ CREATE TABLE #TEMP_12_AUX
 )
 
 DECLARE UpdateStockCursor CURSOR FOR
-SELECT ProductID,
-       ProductName,
-       UnitsInStock
-  FROM Products
- WHERE UnitsInStock > 100
+ SELECT ProductID,
+        ProductName,
+        UnitsInStock
+   FROM Products
+  WHERE UnitsInStock > 100
 
 OPEN UpdateStockCursor
 FETCH NEXT FROM UpdateStockCursor INTO @ProductId12, @ProductName12, @UnitsInStock12
 
 WHILE @@FETCH_STATUS = 0
 BEGIN
-    -- O estoque de origem perde 50 unidades...
     INSERT INTO #TEMP_12
     VALUES ( @ProductId12, @ProductName12, @UnitsInStock12 - 50 )
 
-    -- ...e o outro inventário recebe exatamente essas 50 unidades
     INSERT INTO #TEMP_12_AUX
     VALUES ( @ProductId12, @ProductName12, 50 )
 
@@ -544,8 +537,6 @@ DROP TABLE #TEMP_12_AUX
 -- 13
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- "Vendas baixas" = quantidade total vendida (Order Details) abaixo de um limite. O limite de 600 unidades é arbitrário
-
 DECLARE @ProductId13   INT,
         @ProductName13 VARCHAR(50),
         @UnitPrice13   MONEY,
@@ -567,7 +558,7 @@ DECLARE UpdatePriceCursor CURSOR FOR
           p.ProductName,
           p.UnitPrice,
           ISNULL( SUM(od.Quantity), 0 ) AS TotalSold
-     FROM Products         p
+     FROM Products        p
 LEFT JOIN [Order Details] od ON od.ProductID = p.ProductID
     WHERE p.CategoryID = 1
  GROUP BY p.ProductID, p.ProductName, p.UnitPrice
@@ -609,11 +600,11 @@ CREATE TABLE #TEMP_14
 )
 
 DECLARE FreightPctCursor CURSOR FOR
-SELECT o.OrderID,
-       o.Freight,
-       SUM( od.Quantity * od.UnitPrice ) AS TotalOrder
-  FROM Orders o
-  JOIN [Order Details] od ON od.OrderID = o.OrderID
+  SELECT o.OrderID,
+         o.Freight,
+         SUM( od.Quantity * od.UnitPrice ) AS TotalOrder
+    FROM Orders          o
+    JOIN [Order Details] od ON od.OrderID = o.OrderID
 GROUP BY o.OrderID, o.Freight
 
 OPEN FreightPctCursor
@@ -650,9 +641,9 @@ CREATE TABLE #TEMP_15
 )
 
 DECLARE CustomerCursor CURSOR FOR
-SELECT DISTINCT
-       CustomerID
-  FROM Customers
+ SELECT DISTINCT
+        CustomerID
+   FROM Customers
 
 OPEN CustomerCursor
 FETCH NEXT FROM CustomerCursor INTO @CustomerId15
@@ -663,7 +654,7 @@ BEGIN
       SELECT TOP 1 
              ProductID  
         FROM [Order Details] od
-        JOIN Orders o ON o.OrderID = od.OrderID  
+        JOIN Orders          o  ON o.OrderID = od.OrderID  
        WHERE o.CustomerID = @CustomerId15  
     GROUP BY ProductID  
     ORDER BY SUM(Quantity) DESC
@@ -695,8 +686,6 @@ DROP TABLE #TEMP_15
 -- 16
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- Período analisado: ano de 1997
-
 DECLARE @Region16    VARCHAR(50),
         @BeginDate16 DATETIME = '19970101',
         @EndDate16   DATETIME = '19971231'
@@ -709,15 +698,15 @@ CREATE TABLE #TEMP_16
 
 -- Regiões de clientes sem nenhum pedido dentro do período
 DECLARE RegionCursor CURSOR FOR
-SELECT DISTINCT
-       c.Region
-  FROM Customers c
- WHERE c.Region IS NOT NULL
-   AND NOT EXISTS ( SELECT 1
-                      FROM Orders    o
-                      JOIN Customers c2 ON c2.CustomerID = o.CustomerID
-                     WHERE c2.Region = c.Region
-                       AND o.OrderDate BETWEEN @BeginDate16 AND @EndDate16 )
+ SELECT DISTINCT
+        c.Region
+   FROM Customers c
+  WHERE c.Region IS NOT NULL
+    AND NOT EXISTS ( SELECT 1
+                       FROM Orders    o
+                       JOIN Customers c2 ON c2.CustomerID = o.CustomerID
+                      WHERE c2.Region = c.Region
+                        AND o.OrderDate BETWEEN @BeginDate16 AND @EndDate16 )
 
 OPEN RegionCursor
 FETCH NEXT FROM RegionCursor INTO @Region16
@@ -751,9 +740,9 @@ CREATE TABLE #TEMP_17
 )
 
 DECLARE SupplierCursor CURSOR FOR  
-SELECT DISTINCT
-       SupplierID  
-  FROM Suppliers
+ SELECT DISTINCT
+        SupplierID  
+   FROM Suppliers
 
 OPEN SupplierCursor
 FETCH NEXT FROM SupplierCursor INTO @SupplierId17
@@ -761,9 +750,9 @@ FETCH NEXT FROM SupplierCursor INTO @SupplierId17
 WHILE @@FETCH_STATUS = 0  
 BEGIN  
     DECLARE ProductCursor CURSOR FOR  
-    SELECT ProductID  
-      FROM Products  
-     WHERE SupplierID = @SupplierId17
+     SELECT ProductID  
+       FROM Products  
+      WHERE SupplierID = @SupplierId17
 
     OPEN ProductCursor
     FETCH NEXT FROM ProductCursor INTO @ProductId17
@@ -771,10 +760,10 @@ BEGIN
     WHILE @@FETCH_STATUS = 0  
     BEGIN  
         DECLARE OrdersCursor CURSOR FOR  
-        SELECT DISTINCT 
-               OrderID  
-          FROM [Order Details]  
-         WHERE ProductID = @ProductId17
+         SELECT DISTINCT 
+                OrderID  
+           FROM [Order Details]  
+          WHERE ProductID = @ProductId17
 
         OPEN OrdersCursor
         FETCH NEXT FROM OrdersCursor INTO @OrderId17
@@ -820,13 +809,13 @@ CREATE TABLE #TEMP_18
 )
 
 DECLARE UpdateFreightCursor CURSOR FOR
-SELECT OrderID, 
-       Freight  
-  FROM Orders  
- WHERE OrderID IN (   SELECT OrderID  
-                        FROM [Order Details]  
-                    GROUP BY OrderID  
-                      HAVING SUM( UnitPrice * Quantity ) > 1000 )
+ SELECT OrderID, 
+        Freight  
+   FROM Orders  
+  WHERE OrderID IN (   SELECT OrderID  
+                         FROM [Order Details]  
+                     GROUP BY OrderID  
+                       HAVING SUM( UnitPrice * Quantity ) > 1000 )
 
 OPEN UpdateFreightCursor
 FETCH NEXT FROM UpdateFreightCursor INTO @OrderId18, @Freight18
@@ -880,7 +869,7 @@ DECLARE TotalDiscontinuedValueCursor CURSOR FOR
          p.ProductName,
          COUNT( DISTINCT od.OrderID ) AS QtyOrders,
          SUM( od.Quantity )           AS TotalQuantity
-    FROM Products         p
+    FROM Products        p
     JOIN [Order Details] od ON od.ProductID = p.ProductID
    WHERE p.Discontinued = 1
 GROUP BY p.ProductID, p.ProductName
@@ -910,7 +899,6 @@ DECLARE @ProductId20    INT,
         @ProductName20  VARCHAR(50),
         @UnitsInStock20 INT
 
--- O alerta é registrado em uma tabela auxiliar, como pede o enunciado
 DROP TABLE IF EXISTS #TEMP_20
 CREATE TABLE #TEMP_20
 (
@@ -922,11 +910,11 @@ CREATE TABLE #TEMP_20
 )
 
 DECLARE CriticalStockCursor CURSOR FOR
-SELECT ProductID,
-       ProductName,
-       UnitsInStock
-  FROM Products
- WHERE UnitsInStock < 5
+ SELECT ProductID,
+        ProductName,
+        UnitsInStock
+   FROM Products
+  WHERE UnitsInStock < 5
 
 OPEN CriticalStockCursor
 FETCH NEXT FROM CriticalStockCursor INTO @ProductId20, @ProductName20, @UnitsInStock20
@@ -948,4 +936,3 @@ DEALLOCATE CriticalStockCursor
 
 SELECT * FROM #TEMP_20
 DROP TABLE #TEMP_20
-

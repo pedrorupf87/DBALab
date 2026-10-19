@@ -6,14 +6,13 @@ GO
 -- 101
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- O enunciado restringe aos departamentos 'Information Services' e 'Document Control'
   SELECT edh.Department,
          edh.LastName,
-		 eph.Rate,
-		 CUME_DIST() OVER(PARTITION BY edh.Department ORDER BY eph.Rate)    AS CumeDist,
-		 PERCENT_RANK() OVER(PARTITION BY edh.Department ORDER BY eph.Rate) AS PctRank
+		     eph.Rate,
+		     CUME_DIST() OVER(PARTITION BY edh.Department ORDER BY eph.Rate)    AS CumeDist,
+		     PERCENT_RANK() OVER(PARTITION BY edh.Department ORDER BY eph.Rate) AS PctRank
     FROM HumanResources.vEmployeeDepartmentHistory edh
-	JOIN HumanResources.EmployeePayHistory         eph ON eph.BusinessEntityID = edh.BusinessEntityID
+	  JOIN HumanResources.EmployeePayHistory         eph ON eph.BusinessEntityID = edh.BusinessEntityID
    WHERE edh.Department IN ('Information Services', 'Document Control')
 ORDER BY edh.Department, eph.Rate DESC
 
@@ -24,7 +23,7 @@ ORDER BY edh.Department, eph.Rate DESC
 SELECT p.[Name],
        p.ListPrice,
        p.[Name] AS LeastExpensive
-  FROM Production.[Product]               p
+  FROM Production.[Product] p
   JOIN (SELECT MIN(listprice) AS MinPrice
           FROM Production.[Product]
          WHERE ProductSubcategoryID = 37) sub ON p.listprice = sub.MinPrice
@@ -36,10 +35,10 @@ SELECT p.[Name],
 
   SELECT e.JobTitle,
          p.LastName,
-		 e.VacationHours,
-		 FIRST_VALUE(p.LastName) OVER (PARTITION BY e.JobTitle ORDER BY e.VacationHours ROWS UNBOUNDED PRECEDING) AS FewestVacationHours
+		     e.VacationHours,
+		     FIRST_VALUE(p.LastName) OVER (PARTITION BY e.JobTitle ORDER BY e.VacationHours ROWS UNBOUNDED PRECEDING) AS FewestVacationHours
     FROM HumanResources.Employee e
-	JOIN Person.Person           p ON p.BusinessEntityID = e.BusinessEntityID
+	  JOIN Person.Person           p ON p.BusinessEntityID = e.BusinessEntityID
 ORDER BY e.JobTitle
 
 ------------------------------------------------------------------------------------------------------------------------------------------
@@ -48,8 +47,8 @@ ORDER BY e.JobTitle
 
   SELECT BusinessEntityID,
          YEAR(QuotaDate)                                       AS SalesYear,
-		 SalesQuota                                            AS CurrentQuota,
-		 LAG(SalesQuota, 1, 0) OVER (ORDER BY YEAR(QuotaDate)) AS PreviousQuota
+		     SalesQuota                                            AS CurrentQuota,
+		     LAG(SalesQuota, 1, 0) OVER (ORDER BY YEAR(QuotaDate)) AS PreviousQuota
     FROM Sales.SalesPersonQuotaHistory
    WHERE BusinessEntityID = 275
      AND YEAR(QuotaDate) IN (2012, 2013)
@@ -58,11 +57,10 @@ ORDER BY e.JobTitle
 -- 105
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- "Representante anterior" na ordem de SalesYTD decrescente dentro do território; resultado ordenado por território
   SELECT TerritoryName,
          BusinessEntityID,
-		 SalesYTD,
-		 LAG(SalesYTD, 1, 0) OVER (PARTITION BY TerritoryName ORDER BY SalesYTD DESC) AS PrevRepSales
+		     SalesYTD,
+		     LAG(SalesYTD, 1, 0) OVER (PARTITION BY TerritoryName ORDER BY SalesYTD DESC) AS PrevRepSales
     FROM Sales.vSalesPerson
    WHERE TerritoryName IN ('Canada', 'Northwest')
 ORDER BY TerritoryName
@@ -73,12 +71,12 @@ ORDER BY TerritoryName
 
   SELECT edh.Department,
          edh.LastName,
-		 eph.Rate,
-		 e.HireDate,
-		 LAST_VALUE(e.HireDate) OVER (PARTITION BY eph.Rate ORDER BY edh.Department) AS LastHireDate
+		     eph.Rate,
+		     e.HireDate,
+		     LAST_VALUE(e.HireDate) OVER (PARTITION BY eph.Rate ORDER BY edh.Department) AS LastHireDate
     FROM HumanResources.vEmployeeDepartmentHistory edh
-	JOIN HumanResources.Employee                   e   ON e.BusinessEntityID = edh.BusinessEntityID
-	JOIN HumanResources.EmployeePayHistory         eph ON eph.BusinessEntityID = edh.BusinessEntityID
+	  JOIN HumanResources.Employee                   e   ON e.BusinessEntityID = edh.BusinessEntityID
+	  JOIN HumanResources.EmployeePayHistory         eph ON eph.BusinessEntityID = edh.BusinessEntityID
    WHERE edh.Department IN ('Information Services', 'Document Control')
 ORDER BY edh.Department, eph.Rate, e.HireDate
 
@@ -88,12 +86,12 @@ ORDER BY edh.Department, eph.Rate, e.HireDate
 
   SELECT BusinessEntityID,
          DATEPART(QUARTER, QuotaDate)                          AS [Quarter],
-		 YEAR(QuotaDate)                                       AS SalesYear,
-		 SalesQuota                                            AS QuotaThisQuarter,
-		 SalesQuota - FIRST_VALUE(SalesQuota) OVER (PARTITION BY BusinessEntityID, YEAR(QuotaDate) ORDER BY DATEPART(QUARTER, QuotaDate)) 
-									                           AS DifferenceFromFirstQuarter,
-		 SalesQuota - LAST_VALUE(SalesQuota) OVER (PARTITION BY BusinessEntityID, YEAR(QuotaDate) ORDER BY DATEPART(QUARTER, QuotaDate)
-			RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) AS DifferenceFromLastQuarter
+		     YEAR(QuotaDate)                                       AS SalesYear,
+		     SalesQuota                                            AS QuotaThisQuarter,
+		     SalesQuota - FIRST_VALUE(SalesQuota) OVER (PARTITION BY BusinessEntityID, YEAR(QuotaDate) ORDER BY DATEPART(QUARTER, QuotaDate)) 
+		    							                                         AS DifferenceFromFirstQuarter,
+		     SalesQuota - LAST_VALUE(SalesQuota) OVER (PARTITION BY BusinessEntityID, YEAR(QuotaDate) ORDER BY DATEPART(QUARTER, QuotaDate)
+			   RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)    AS DifferenceFromLastQuarter
     FROM Sales.SalesPersonQuotaHistory
    WHERE YEAR(QuotaDate) > 2005
      AND BusinessEntityID IN (274, 275)
@@ -105,8 +103,8 @@ ORDER BY BusinessEntityID, YEAR(QuotaDate), DATEPART(QUARTER, QuotaDate)
 
   SELECT QuotaDate                                                                      AS [Year],
          DATEPART(QUARTER, QuotaDate)                                                   AS [Quarter],
-		 SalesQuota,
-		 VARP(SalesQuota) OVER (ORDER BY YEAR(QuotaDate), DATEPART(QUARTER, QuotaDate)) AS Variance
+		     SalesQuota,
+		     VARP(SalesQuota) OVER (ORDER BY YEAR(QuotaDate), DATEPART(QUARTER, QuotaDate)) AS Variance
     FROM Sales.SalesPersonQuotaHistory
    WHERE BusinessEntityID = 277
      AND YEAR(QuotaDate) = 2012
@@ -129,11 +127,10 @@ SELECT BusinessEntityID,
 -- 110
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- LEAD traz o PRÓXIMO representante (NextRepSales), na ordem de SalesYTD decrescente dentro do território
   SELECT TerritoryName,
          BusinessEntityID,
-		 SalesYTD,
-		 LEAD(SalesYTD, 1, 0) OVER (PARTITION BY TerritoryName ORDER BY SalesYTD DESC) AS NextRepSales
+		     SalesYTD,
+		     LEAD(SalesYTD, 1, 0) OVER (PARTITION BY TerritoryName ORDER BY SalesYTD DESC) AS NextRepSales
     FROM Sales.vSalesPerson
    WHERE TerritoryName IN ('Canada', 'Northwest')
 ORDER BY TerritoryName
@@ -142,12 +139,11 @@ ORDER BY TerritoryName
 -- 111
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- A janela ordena por ano E trimestre: só pelo ano, a ordem dos trimestres dentro do ano não seria garantida
-  SELECT YEAR(QuotaDate)                                                                                AS [Year],
-         DATEPART(QUARTER, QuotaDate)                                                                   AS [Quarter],
-		 SalesQuota,
-		 LEAD(SalesQuota, 1, 0) OVER (ORDER BY YEAR(QuotaDate), DATEPART(QUARTER, QuotaDate))           AS NextQuota,
-		 SalesQuota - LEAD(SalesQuota, 1, 0) OVER (ORDER BY YEAR(QuotaDate), DATEPART(QUARTER, QuotaDate)) AS Diff
+  SELECT YEAR(QuotaDate)                                                                                   AS [Year],
+         DATEPART(QUARTER, QuotaDate)                                                                      AS [Quarter],
+		     SalesQuota,
+		     LEAD(SalesQuota, 1, 0) OVER (ORDER BY YEAR(QuotaDate), DATEPART(QUARTER, QuotaDate))              AS NextQuota,
+		     SalesQuota - LEAD(SalesQuota, 1, 0) OVER (ORDER BY YEAR(QuotaDate), DATEPART(QUARTER, QuotaDate)) AS Diff
     FROM Sales.SalesPersonQuotaHistory
    WHERE BusinessEntityID = 277
      AND YEAR(QuotaDate) IN (2012, 2013)
@@ -159,11 +155,11 @@ ORDER BY YEAR(QuotaDate), DATEPART(QUARTER, QuotaDate)
 
   SELECT edh.Department,
          edh.LastName,
-		 eph.Rate,
-		 CUME_DIST() OVER(PARTITION BY edh.Department ORDER BY eph.Rate)    AS CumeDist,
-		 PERCENT_RANK() OVER(PARTITION BY edh.Department ORDER BY eph.Rate) AS PctRank
+		     eph.Rate,
+		     CUME_DIST() OVER(PARTITION BY edh.Department ORDER BY eph.Rate)    AS CumeDist,
+		     PERCENT_RANK() OVER(PARTITION BY edh.Department ORDER BY eph.Rate) AS PctRank
     FROM HumanResources.vEmployeeDepartmentHistory edh
-	JOIN HumanResources.EmployeePayHistory         eph ON eph.BusinessEntityID = edh.BusinessEntityID
+	  JOIN HumanResources.EmployeePayHistory         eph ON eph.BusinessEntityID = edh.BusinessEntityID
    WHERE edh.Department IN ('Information Services', 'Document Control')
 ORDER BY edh.Department, eph.Rate DESC
 
@@ -173,7 +169,7 @@ ORDER BY edh.Department, eph.Rate DESC
 
   SELECT SalesOrderID,
          OrderDate,
-		 DATEADD(DAY, 2, OrderDate) AS PromisedShipDate
+		     DATEADD(DAY, 2, OrderDate) AS PromisedShipDate
     FROM Sales.SalesOrderHeader
 ORDER BY SalesOrderID
 
@@ -183,9 +179,9 @@ ORDER BY SalesOrderID
 
   SELECT p.FirstName,
          p.LastName,
-		 DATEADD(DAY, 2, GETDATE()) AS NewDate
+		     DATEADD(DAY, 2, GETDATE()) AS NewDate
     FROM Person.Person     p
-	JOIN Sales.SalesPerson sp ON sp.BusinessEntityID = p.BusinessEntityID
+	  JOIN Sales.SalesPerson sp ON sp.BusinessEntityID = p.BusinessEntityID
    WHERE sp.SalesQuota > 0
      AND sp.TerritoryID IS NOT NULL
 
@@ -193,9 +189,8 @@ ORDER BY SalesOrderID
 -- 115
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- O tipo DATE não aceita o operador de subtração: a diferença em dias vem de DATEDIFF
-SELECT MAX(CAST(OrderDate AS DATE))                AS LastDate,
-       MIN(CAST(OrderDate AS DATE))                AS FirstDate,
+SELECT MAX(CAST(OrderDate AS DATE))                  AS LastDate,
+       MIN(CAST(OrderDate AS DATE))                  AS FirstDate,
        DATEDIFF(DAY, MIN(OrderDate), MAX(OrderDate)) AS Diff
   FROM Sales.SalesOrderHeader
 
@@ -205,11 +200,11 @@ SELECT MAX(CAST(OrderDate AS DATE))                AS LastDate,
 
   SELECT pin.ProductID,
          p.[Name],
-		 pin.LocationID,
-		 pin.Quantity,
-		 DENSE_RANK() OVER (PARTITION BY pin.LocationID ORDER BY pin.Quantity DESC) AS [Rank]
+		     pin.LocationID,
+		     pin.Quantity,
+		     DENSE_RANK() OVER (PARTITION BY pin.LocationID ORDER BY pin.Quantity DESC) AS [Rank]
     FROM Production.ProductInventory pin
-	JOIN Production.[Product]        p   ON p.ProductID = pin.ProductID
+	  JOIN Production.[Product]        p   ON p.ProductID = pin.ProductID
    WHERE pin.LocationID IN (3, 4)
 
 ------------------------------------------------------------------------------------------------------------------------------------------
@@ -219,7 +214,7 @@ SELECT MAX(CAST(OrderDate AS DATE))                AS LastDate,
   SELECT TOP 10
          BusinessEntityID,
          Rate,
-		 DENSE_RANK() OVER (ORDER BY Rate DESC) AS RankBySalary
+		     DENSE_RANK() OVER (ORDER BY Rate DESC) AS RankBySalary
     FROM HumanResources.EmployeePayHistory
 ORDER BY Rate DESC
 
@@ -244,23 +239,21 @@ SELECT p.FirstName,
 
   SELECT pin.ProductID,
          p.[Name],
-		 pin.LocationID,
-		 pin.Quantity,
-		 RANK() OVER (PARTITION BY pin.LocationID ORDER BY pin.Quantity DESC) AS [Rank]
+		     pin.LocationID,
+		     pin.Quantity,
+		     RANK() OVER (PARTITION BY pin.LocationID ORDER BY pin.Quantity DESC) AS [Rank]
     FROM Production.ProductInventory pin
-	JOIN Production.[Product]        p   ON p.ProductID = pin.ProductID
+	  JOIN Production.[Product]        p   ON p.ProductID = pin.ProductID
    WHERE pin.LocationID IN (3, 4)
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 120
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- Os dez primeiros funcionários (por BusinessEntityID), cada um com a posição do seu salário atual
--- entre TODOS os funcionários. A taxa atual é a da última RateChangeDate
   SELECT TOP 10
          eph.BusinessEntityID,
          eph.Rate,
-		 RANK() OVER (ORDER BY eph.Rate DESC) AS RankBySalary
+		     RANK() OVER (ORDER BY eph.Rate DESC) AS RankBySalary
     FROM HumanResources.EmployeePayHistory eph
    WHERE eph.RateChangeDate = (SELECT MAX(eph2.RateChangeDate)
                                  FROM HumanResources.EmployeePayHistory eph2
@@ -283,17 +276,16 @@ SELECT ROW_NUMBER() OVER (ORDER BY SalesYTD DESC) AS [Row],
 -- 122
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- A numeração segue a data do pedido, como pede o enunciado (SalesOrderID só desempata)
 ;WITH OrderedSalesCTE AS
 (
 	SELECT SalesOrderID,
 	       OrderDate,
-		   ROW_NUMBER() OVER (ORDER BY OrderDate, SalesOrderID) AS RowNumber
+		     ROW_NUMBER() OVER (ORDER BY OrderDate, SalesOrderID) AS RowNumber
 	  FROM Sales.SalesOrderHeader
 )
 SELECT SalesOrderID,
        OrderDate,
-	   RowNumber
+	     RowNumber
   FROM OrderedSalesCTE
  WHERE RowNumber BETWEEN 50 AND 60
 
@@ -317,8 +309,8 @@ ORDER BY TerritoryName
 
   SELECT BusinessEntityID,
          LastName,
-		 TerritoryName,
-		 CountryRegionName
+		     TerritoryName,
+		     CountryRegionName
     FROM Sales.vSalesPerson
    WHERE SalesYTD > 0
      AND TerritoryName IS NOT NULL
@@ -331,13 +323,13 @@ ORDER BY CASE WHEN CountryRegionName = 'United States' THEN TerritoryName
 ------------------------------------------------------------------------------------------------------------------------------------------
 
   SELECT e.JobTitle,
-		 MAX(eph.Rate) AS MaximumRate
+		     MAX(eph.Rate) AS MaximumRate
     FROM HumanResources.Employee           e
-	JOIN HumanResources.EmployeePayHistory eph ON eph.BusinessEntityID = e.BusinessEntityID
+	  JOIN HumanResources.EmployeePayHistory eph ON eph.BusinessEntityID = e.BusinessEntityID
 GROUP BY e.JobTitle
   HAVING (MAX(CASE WHEN Gender = 'M' THEN eph.Rate ELSE NULL END) > 40.00
           OR
-		  MAX(CASE WHEN Gender = 'F' THEN eph.Rate ELSE NULL END) > 42.00)
+		      MAX(CASE WHEN Gender = 'F' THEN eph.Rate ELSE NULL END) > 42.00)
 ORDER BY MaximumRate DESC
 
 ------------------------------------------------------------------------------------------------------------------------------------------
@@ -354,17 +346,15 @@ ORDER BY CASE WHEN SalariedFlag = 'True'  THEN BusinessEntityID END DESC,
 -- 127
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- O CASE é avaliado em ordem, então cada faixa só precisa do limite superior.
--- (Com "> 50" e "> 250", os preços exatamente iguais a 50 e a 250 caíam em 'Over $1000')
   SELECT ProductNumber,
          [Name],
-		 ListPrice,
-		 CASE WHEN ListPrice = 0    THEN 'Mfg item - not for resale'
-		      WHEN ListPrice < 50   THEN 'Under $50'
-			  WHEN ListPrice < 250  THEN 'Under $250'
-			  WHEN ListPrice < 1000 THEN 'Under $1000'
-			  ELSE 'Over $1000'
-			   END AS PriceRange
+		     ListPrice,
+		     CASE WHEN ListPrice = 0    THEN 'Mfg item - not for resale'
+		          WHEN ListPrice < 50   THEN 'Under $50'
+			        WHEN ListPrice < 250  THEN 'Under $250'
+			        WHEN ListPrice < 1000 THEN 'Under $1000'
+			        ELSE 'Over $1000'
+			         END AS PriceRange
     FROM Production.[Product]
 ORDER BY ProductNumber ASC
 
@@ -374,11 +364,11 @@ ORDER BY ProductNumber ASC
 
   SELECT ProductNumber,
          CASE WHEN ProductLine = 'M' THEN 'Mountain'
-		      WHEN ProductLine = 'R' THEN 'Road'
-			  WHEN ProductLine = 'T' THEN 'Touring'
-			  WHEN ProductLine = 'S' THEN 'Other sale items'
-			  ELSE 'Not for sale'
-		  END AS Category,
+		          WHEN ProductLine = 'R' THEN 'Road'
+			        WHEN ProductLine = 'T' THEN 'Touring'
+			        WHEN ProductLine = 'S' THEN 'Other sale items'
+			        ELSE 'Not for sale'
+		           END AS Category,
          [Name]
     FROM Production.[Product]
 ORDER BY ProductNumber
@@ -387,11 +377,10 @@ ORDER BY ProductNumber
 -- 129
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- NULLIF devolve NULL quando os dois valores são iguais e, caso contrário, o primeiro valor
   SELECT ProductID,
          MakeFlag,
-		 FinishedGoodsFlag,
-		 NULLIF(MakeFlag, FinishedGoodsFlag) AS NullIfEqual
+		     FinishedGoodsFlag,
+		     NULLIF(MakeFlag, FinishedGoodsFlag) AS NullIfEqual
     FROM Production.[Product]
    WHERE ProductID < 10
 ORDER BY ProductID
@@ -402,20 +391,19 @@ ORDER BY ProductID
 
 SELECT [Name],
        Class,
-	   Color,
-	   ProductNumber,
-	   COALESCE(Class, Color, ProductNumber) AS FirstNotNull
+	     Color,
+	     ProductNumber,
+	     COALESCE(Class, Color, ProductNumber) AS FirstNotNull
   FROM Production.[Product]
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 131
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- Mesma lógica do exercício 129, escrita com CASE: o ELSE devolve o primeiro valor (MakeFlag)
   SELECT ProductID,
          MakeFlag,
-		 FinishedGoodsFlag,
-		 CASE WHEN MakeFlag = FinishedGoodsFlag THEN NULL ELSE MakeFlag END AS NullIfEqual
+		     FinishedGoodsFlag,
+		     CASE WHEN MakeFlag = FinishedGoodsFlag THEN NULL ELSE MakeFlag END AS NullIfEqual
     FROM Production.[Product]
    WHERE ProductID < 10
 ORDER BY ProductID
@@ -506,11 +494,11 @@ ORDER BY [Name]
 
   SELECT p.FirstName,
          p.LastName,
-		 e.VacationHours,
-		 e.SickLeaveHours,
-		 e.VacationHours + e.SickLeaveHours AS TotalHoursAway
+		     e.VacationHours,
+		     e.SickLeaveHours,
+		     e.VacationHours + e.SickLeaveHours AS TotalHoursAway
     FROM Person.Person           p
-	JOIN HumanResources.Employee e ON e.BusinessEntityID = p.BusinessEntityID
+	  JOIN HumanResources.Employee e ON e.BusinessEntityID = p.BusinessEntityID
 ORDER BY TotalHoursAway
 
 ------------------------------------------------------------------------------------------------------------------------------------------
@@ -528,10 +516,10 @@ SELECT MAX(TaxRate) - MIN(TaxRate) AS TaxRateDifference
   SELECT sp.BusinessEntityID,
          p.FirstName,
          p.LastName,
-		 ISNULL(sp.SalesQuota, 0)      AS SalesQuota,
-		 ISNULL(sp.SalesQuota / 12, 0) AS SalesTargetPerMonth
+		     ISNULL(sp.SalesQuota, 0)      AS SalesQuota,
+		     ISNULL(sp.SalesQuota / 12, 0) AS SalesTargetPerMonth
     FROM Person.Person     p
-	JOIN Sales.SalesPerson sp ON sp.BusinessEntityID = p.BusinessEntityID
+	  JOIN Sales.SalesPerson sp ON sp.BusinessEntityID = p.BusinessEntityID
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 141
@@ -539,8 +527,8 @@ SELECT MAX(TaxRate) - MIN(TaxRate) AS TaxRateDifference
 
 SELECT ProductID, 
        UnitPrice,
-	   OrderQty,
-	   CAST(UnitPrice AS INT) % OrderQty AS Module
+	     OrderQty,
+	     CAST(UnitPrice AS INT) % OrderQty AS Module
   FROM Sales.SalesOrderDetail
 
 ------------------------------------------------------------------------------------------------------------------------------------------
@@ -549,8 +537,8 @@ SELECT ProductID,
 
 SELECT BusinessEntityID,
        LoginID,
-	   JobTitle, 
-	   VacationHours
+	     JobTitle, 
+	     VacationHours
   FROM HumanResources.Employee
  WHERE JobTitle = 'Marketing Assistant'
    AND VacationHours > 41
@@ -561,9 +549,9 @@ SELECT BusinessEntityID,
 
   SELECT e.FirstName,
          e.LastName,
-		 eph.Rate
+		    eph.Rate
     FROM HumanResources.vEmployee          e
-	JOIN HumanResources.EmployeePayHistory eph ON eph.BusinessEntityID = e.BusinessEntityID
+	  JOIN HumanResources.EmployeePayHistory eph ON eph.BusinessEntityID = e.BusinessEntityID
    WHERE eph.Rate NOT BETWEEN 27 AND 30
 ORDER BY eph.Rate
 
@@ -594,7 +582,7 @@ ORDER BY [Name] ASC
   SELECT p.FirstName,
          p.LastName
     FROM Person.Person           p
-	JOIN HumanResources.Employee e ON e.BusinessEntityID = p.BusinessEntityID
+	  JOIN HumanResources.Employee e ON e.BusinessEntityID = p.BusinessEntityID
    WHERE p.LastName = 'Johnson'
 ORDER BY p.FirstName
 
@@ -605,9 +593,9 @@ ORDER BY p.FirstName
 SELECT DISTINCT 
        s.[Name]
   FROM Sales.Store s
-WHERE EXISTS (SELECT *  
-                FROM Purchasing.Vendor v  
-               WHERE s.[Name] = v.[Name])
+ WHERE EXISTS (SELECT *  
+                 FROM Purchasing.Vendor v  
+                WHERE s.[Name] = v.[Name])
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 148
@@ -615,7 +603,7 @@ WHERE EXISTS (SELECT *
 
 SELECT p.FirstName,
        p.LastName,
-	   e.JobTitle
+	     e.JobTitle
   FROM Person.Person           p
   JOIN HumanResources.Employee e ON e.BusinessEntityID = p.BusinessEntityID
  WHERE EXISTS (SELECT *  
@@ -634,10 +622,10 @@ SELECT p.FirstName,
     FROM Person.Person           p
     JOIN HumanResources.Employee e ON e.BusinessEntityID = p.BusinessEntityID
    WHERE NOT EXISTS (SELECT *  
-                      FROM HumanResources.Department                d
-                      JOIN HumanResources.EmployeeDepartmentHistory edh ON d.DepartmentID = edh.DepartmentID  
-                     WHERE e.BusinessEntityID = edh.BusinessEntityID
-                       AND d.[Name] LIKE 'P%')
+                       FROM HumanResources.Department                d
+                       JOIN HumanResources.EmployeeDepartmentHistory edh ON d.DepartmentID = edh.DepartmentID  
+                      WHERE e.BusinessEntityID = edh.BusinessEntityID
+                        AND d.[Name] LIKE 'P%')
 ORDER BY p.LastName, p.FirstName
 
 ------------------------------------------------------------------------------------------------------------------------------------------
@@ -646,7 +634,7 @@ ORDER BY p.LastName, p.FirstName
 
 SELECT p.FirstName,
        p.LastName,
-	   e.JobTitle
+	     e.JobTitle
   FROM Person.Person           p
   JOIN HumanResources.Employee e ON p.BusinessEntityID = e.BusinessEntityID
  WHERE e.JobTitle IN ('Design Engineer', 'Tool Designer', 'Marketing Assistant')
@@ -665,7 +653,6 @@ SELECT p.FirstName,
 -- 152
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- "Não têm cota maior que 250.000" inclui quem não tem cota (SalesQuota nulo)
 SELECT p.FirstName,
        p.LastName
   FROM Person.Person     p
@@ -710,11 +697,10 @@ ORDER BY p.LastName ASC
 -- 156
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- Bicicletas de cor prata: o filtro é pela coluna Color
 SELECT ProductID,
        [Name],
-	   Color,
-	   StandardCost
+	     Color,
+	     StandardCost
   FROM Production.[Product]
  WHERE ProductNumber LIKE 'BK-%'
    AND Color = 'Silver'
@@ -726,7 +712,7 @@ SELECT ProductID,
 
 SELECT p.FirstName,
        p.LastName,
-	   s.[Name]
+	     s.[Name]
   FROM HumanResources.EmployeeDepartmentHistory edh
   JOIN HumanResources.[Shift]                   s   ON s.ShiftID = edh.ShiftID
   JOIN HumanResources.Department                d   ON d.DepartmentID = edh.DepartmentID
@@ -748,28 +734,25 @@ ORDER BY FirstName ASC
 -- 159
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- America/Denver corresponde ao fuso 'Mountain Standard Time' do Windows
 SELECT SalesOrderID,
        OrderDate,
-	   OrderDate AT TIME ZONE 'Mountain Standard Time' AS orderdate_timezoneade
+ 	     OrderDate AT TIME ZONE 'Mountain Standard Time' AS orderdate_timezoneade
   FROM Sales.SalesOrderHeader
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 160
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- A data é interpretada como horário de Denver e depois convertida para o de Chicago ('Central Standard Time')
 SELECT SalesOrderID,
        OrderDate,
-	   OrderDate AT TIME ZONE 'Mountain Standard Time'                                      AS orderdate_timezoneade,
-	   OrderDate AT TIME ZONE 'Mountain Standard Time' AT TIME ZONE 'Central Standard Time' AS orderdate_timezoneamchi
+	     OrderDate AT TIME ZONE 'Mountain Standard Time'                                      AS orderdate_timezoneade,
+	     OrderDate AT TIME ZONE 'Mountain Standard Time' AT TIME ZONE 'Central Standard Time' AS orderdate_timezoneamchi
   FROM Sales.SalesOrderHeader
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 161
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- No LIKE, "_" é curinga de um caractere. Para procurar o sublinhado literal é preciso escapá-lo
 SELECT *
   FROM Production.ProductPhoto
  WHERE LargePhotoFileName LIKE '%green\_%' ESCAPE '\'
@@ -780,9 +763,9 @@ SELECT *
 
 SELECT a.AddressLine1,
        a.AddressLine2,
-	   a.City,
-	   a.PostalCode,
-	   sp.CountryRegionCode
+	     a.City,
+	     a.PostalCode,
+	     sp.CountryRegionCode
   FROM Person.[Address]     a
   JOIN Person.StateProvince sp ON sp.StateProvinceID = a.StateProvinceID
  WHERE a.City LIKE 'Pa%'
@@ -794,7 +777,7 @@ SELECT a.AddressLine1,
 
 SELECT p.ProductID,
        p.[Name],
-	   p.Color
+	     p.Color
   FROM Production.[Product]                                 p
   JOIN (VALUES ('Blade'), ('Crown Race'), ('AWC Logo Cap')) b([Name]) ON b.[Name] = p.[Name]
 
@@ -805,8 +788,8 @@ SELECT p.ProductID,
 ;WITH SalesCTE (SalesPersonID, TotalSales, SalesYear) AS
 (
       SELECT SalesPersonID,
-	         SUM(TotalDue)             AS TotalSales,
-			 DATEPART(YEAR, OrderDate) AS SalesYear
+	           SUM(TotalDue)             AS TotalSales,
+			       DATEPART(YEAR, OrderDate) AS SalesYear
         FROM Sales.SalesOrderHeader
        WHERE SalesPersonID IS NOT NULL
     GROUP BY SalesPersonID, DATEPART(YEAR, OrderDate)
@@ -814,16 +797,16 @@ SELECT p.ProductID,
 SalesQuotaCTE (BusinessEntityID, SalesQuota, SalesQuotaYear) AS
 (
       SELECT BusinessEntityID,
-	         SUM(SalesQuota)           AS SalesQuota,
-			 DATEPART(YEAR, QuotaDate) AS SalesQuotaYear
+	           SUM(SalesQuota)           AS SalesQuota,
+			       DATEPART(YEAR, QuotaDate) AS SalesQuotaYear
         FROM Sales.SalesPersonQuotaHistory
     GROUP BY BusinessEntityID, DATEPART(YEAR, QuotaDate)
 )
   SELECT SalesPersonID,
          SalesYear,
-         CAST(TotalSales AS VARCHAR(20)) AS TotalSales,
+         CAST(TotalSales AS VARCHAR(20))              AS TotalSales,
          SalesQuotaYear,
-         CAST(SalesQuota AS VARCHAR(20)) AS SalesQuota,
+         CAST(SalesQuota AS VARCHAR(20))              AS SalesQuota,
          CAST(TotalSales - SalesQuota AS VARCHAR(20)) AS Amt_Above_or_Below_Quota
     FROM SalesCTE
     JOIN SalesQuotaCTE ON SalesQuotaCTE.BusinessEntityID = SalesCTE.SalesPersonID AND SalesCTE.SalesYear = SalesQuotaCTE.SalesQuotaYear
@@ -834,7 +817,7 @@ ORDER BY SalesPersonID, SalesYear
 ------------------------------------------------------------------------------------------------------------------------------------------
 
     SELECT e.BusinessEntityID,
-	       d.[Name]            AS Department
+	         d.[Name]            AS Department
       FROM HumanResources.Employee   e
 CROSS JOIN HumanResources.Department d
   ORDER BY e.BusinessEntityID, d.[Name]
@@ -845,7 +828,7 @@ CROSS JOIN HumanResources.Department d
 
 SELECT sod.SalesOrderID,
        p.ProductID,
-	   p.[Name]
+	     p.[Name]
   FROM Sales.SalesOrderDetail sod
   JOIN Production.[Product]   p   ON p.ProductID = sod.ProductID
 
@@ -855,7 +838,7 @@ SELECT sod.SalesOrderID,
 
 SELECT sod.SalesOrderID,
        p.ProductID,
-	   p.[Name]
+	     p.[Name]
   FROM Sales.SalesOrderDetail sod
   JOIN Production.[Product]   p   ON p.ProductID = sod.ProductID
  WHERE sod.SalesOrderID > 60000
@@ -866,7 +849,7 @@ SELECT sod.SalesOrderID,
 
          SELECT st.TerritoryID,
                 st.CountryRegionCode,
-         	    soh.SalesOrderID
+         	      soh.SalesOrderID
            FROM Sales.SalesTerritory   st
 LEFT OUTER JOIN Sales.SalesOrderHeader soh ON soh.TerritoryID = st.TerritoryID
        ORDER BY soh.SalesOrderID
@@ -877,7 +860,7 @@ LEFT OUTER JOIN Sales.SalesOrderHeader soh ON soh.TerritoryID = st.TerritoryID
 
          SELECT st.TerritoryID,
                 st.CountryRegionCode,
-         	    soh.SalesOrderID
+         	      soh.SalesOrderID
            FROM Sales.SalesTerritory   st
 FULL OUTER JOIN Sales.SalesOrderHeader soh ON soh.TerritoryID = st.TerritoryID
        ORDER BY soh.SalesOrderID
@@ -887,7 +870,7 @@ FULL OUTER JOIN Sales.SalesOrderHeader soh ON soh.TerritoryID = st.TerritoryID
 ------------------------------------------------------------------------------------------------------------------------------------------
 
     SELECT st.TerritoryID,
-	       soh.SalesOrderID
+	         soh.SalesOrderID
       FROM Sales.SalesTerritory   st
 CROSS JOIN Sales.SalesOrderHeader soh
   ORDER BY soh.SalesOrderID
@@ -972,12 +955,11 @@ ORDER BY [Name] ASC
 -- 177
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- Os estilos de exibição vêm do terceiro argumento do CONVERT: 1 = valor monetário com vírgulas, 3 = data dd/mm/aa
 SELECT BusinessEntityID,
        SalesYTD,
-	   CONVERT(VARCHAR(12), SalesYTD, 1)   AS moneydisplaystyle1,
-	   GETDATE()                           AS CurrentDate,
-	   CONVERT(VARCHAR(12), GETDATE(), 3)  AS datedisplaystyle3
+	     CONVERT(VARCHAR(12), SalesYTD, 1)   AS moneydisplaystyle1,
+	     GETDATE()                           AS CurrentDate,
+	     CONVERT(VARCHAR(12), GETDATE(), 3)  AS datedisplaystyle3
   FROM Sales.SalesPerson
  WHERE CAST(SalesYTD AS VARCHAR(20)) LIKE '1%'
 
@@ -990,8 +972,8 @@ SELECT BusinessEntityID,
                      WHEN GROUPING(d.[Name]) = 0 AND GROUPING(e.JobTitle) = 1 THEN CONCAT('Total: ', d.[Name])
                      WHEN GROUPING(d.[Name]) = 1 AND GROUPING(e.JobTitle) = 1 THEN 'Company Total: '
                      ELSE 'Unknown'
-                      END AS JobTitle,
-         	   COUNT(e.BusinessEntityID) AS EmployeeCount
+                      END                 AS JobTitle,
+         	      COUNT(e.BusinessEntityID) AS EmployeeCount
            FROM HumanResources.Employee                  e
            JOIN HumanResources.EmployeeDepartmentHistory edh ON e.BusinessEntityID = edh.BusinessEntityID  
            JOIN HumanResources.Department                d   ON d.DepartmentID = edh.DepartmentID       
@@ -1005,7 +987,7 @@ GROUP BY ROLLUP (d.[Name], e.JobTitle)
 
          SELECT d.[Name], 
                 e.JobTitle, GROUPING(d.[Name]) + GROUPING(e.JobTitle) AS GroupingLevel, 
-         	    COUNT(e.BusinessEntityID)                             AS EmployeeCount  
+         	      COUNT(e.BusinessEntityID)                             AS EmployeeCount  
            FROM HumanResources.Employee                  e
            JOIN HumanResources.EmployeeDepartmentHistory edh ON edh.BusinessEntityID = e.BusinessEntityID  
            JOIN HumanResources.Department                d   ON d.DepartmentID = edh.DepartmentID       
@@ -1021,7 +1003,7 @@ GROUP BY ROLLUP (d.[Name], e.JobTitle)
          SELECT d.[Name],
                 e.JobTitle,
                 GROUPING(d.[Name]) + GROUPING(e.JobTitle) AS GroupingLevel,
-                COUNT(e.BusinessEntityID) AS EmployeeCount
+                COUNT(e.BusinessEntityID)                 AS EmployeeCount
            FROM HumanResources.Employee e
            JOIN HumanResources.EmployeeDepartmentHistory edh ON edh.BusinessEntityID = e.BusinessEntityID  
            JOIN HumanResources.Department d ON d.DepartmentID = edh.DepartmentID       
@@ -1034,12 +1016,11 @@ GROUP BY ROLLUP (d.[Name], e.JobTitle)
 -- 181
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- A janela ordena por ano E trimestre, para o "anterior" ser de fato o trimestre anterior
   SELECT QuotaDate                                                                                       AS [Year],
          DATEPART(QUARTER, QuotaDate)                                                                    AS [Quarter],
-	     SalesQuota,
-	     LAG(SalesQuota, 1,0) OVER (ORDER BY YEAR(QuotaDate), DATEPART(QUARTER, QuotaDate))              AS PreviousQuota,
-	     SalesQuota - LAG(SalesQuota, 1,0) OVER (ORDER BY YEAR(QuotaDate), DATEPART(QUARTER, QuotaDate)) AS DiffQuota
+	       SalesQuota,
+	       LAG(SalesQuota, 1,0) OVER (ORDER BY YEAR(QuotaDate), DATEPART(QUARTER, QuotaDate))              AS PreviousQuota,
+	       SalesQuota - LAG(SalesQuota, 1,0) OVER (ORDER BY YEAR(QuotaDate), DATEPART(QUARTER, QuotaDate)) AS DiffQuota
     FROM Sales.SalesPersonQuotaHistory
    WHERE BusinessEntityID = 277
      AND YEAR(QuotaDate) IN (2012, 2013)
@@ -1049,11 +1030,9 @@ ORDER BY YEAR(QuotaDate), DATEPART(QUARTER, QuotaDate)
 -- 182
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- O enunciado pede a data do pedido truncada (sem a hora) com 4 meses somados.
--- (Na página, o resultado de exemplo deste exercício repete o do 181 por engano)
 SELECT SalesOrderID,
        OrderDate,
-	   DATEADD(MONTH, 4, CAST(OrderDate AS DATE)) AS OrderDatePlus4Months
+	     DATEADD(MONTH, 4, CAST(OrderDate AS DATE)) AS OrderDatePlus4Months
   FROM Sales.SalesOrderHeader
 
 ------------------------------------------------------------------------------------------------------------------------------------------
@@ -1061,12 +1040,12 @@ SELECT SalesOrderID,
 ------------------------------------------------------------------------------------------------------------------------------------------
 
 SELECT SalesOrderID,
-       MONTH(OrderDate)																						  AS MonthOrderOccurred,
+       MONTH(OrderDate)																						                                            AS MonthOrderOccurred,
        SalesPersonID,
-	   CustomerID,
-	   SubTotal,
-	   SUM(subtotal) OVER (PARTITION BY CustomerID ORDER BY OrderDate, SalesOrderID ROWS UNBOUNDED PRECEDING) AS RunningTotal,
-	   OrderDate																						      AS ActualOrderDate
+	     CustomerID,
+	     SubTotal,
+	     SUM(subtotal) OVER (PARTITION BY CustomerID ORDER BY OrderDate, SalesOrderID ROWS UNBOUNDED PRECEDING) AS RunningTotal,
+	     OrderDate																						                                                  AS ActualOrderDate
   FROM Sales.SalesOrderHeader
  WHERE OrderDate >= '2011-12-01'
    AND SalesPersonID IS NOT NULL
@@ -1075,10 +1054,9 @@ SELECT SalesOrderID,
 -- 184
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- Quatro zeros na frente do ProductNumber inteiro (o RIGHT(..., 12) cortava os números mais longos)
 SELECT [Name],
        ProductNumber,
-	   REPLICATE('0', 4) + ProductNumber AS FullProductNumber
+	     REPLICATE('0', 4) + ProductNumber AS FullProductNumber
   FROM Production.[Product]
 
 ------------------------------------------------------------------------------------------------------------------------------------------
@@ -1087,8 +1065,8 @@ SELECT [Name],
 
 SELECT [Description],
        DiscountPct,
-	   MinQty,
-	   ISNULL(MaxQty, 0) AS MaxQty
+	     MinQty,
+	     ISNULL(MaxQty, 0) AS MaxQty
   FROM Sales.SpecialOffer
 
 ------------------------------------------------------------------------------------------------------------------------------------------
@@ -1106,42 +1084,39 @@ SELECT [Name],
 
 SELECT [Name],
        Color,
-	   ProductNumber,
-	   COALESCE(Color, ProductNumber) AS FirstNotNull
+	     ProductNumber,
+	     COALESCE(Color, ProductNumber) AS FirstNotNull
   FROM Production.[Product]
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 188
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- Linhas em que ProductID e StartDate coincidem nas duas tabelas
 SELECT wo.productid,
        wo.startdate
   FROM Production.WorkOrder wo
-WHERE EXISTS (SELECT *
-                FROM Production.WorkOrderRouting wor
-               WHERE (wo.ProductID = wor.ProductID AND wo.StartDate = wor.ActualStartDate))
+ WHERE EXISTS (SELECT *
+                 FROM Production.WorkOrderRouting wor
+                WHERE (wo.ProductID = wor.ProductID AND wo.StartDate = wor.ActualStartDate))
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 189
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- O contrário do 188: linhas em que ProductID e StartDate NÃO coincidem nas duas tabelas
 SELECT wo.productid,
        wo.startdate
   FROM Production.WorkOrder wo
-WHERE NOT EXISTS (SELECT *
-                    FROM Production.WorkOrderRouting wor
-                   WHERE (wo.ProductID = wor.ProductID AND wo.StartDate = wor.ActualStartDate))
+ WHERE NOT EXISTS (SELECT *
+                     FROM Production.WorkOrderRouting wor
+                    WHERE (wo.ProductID = wor.ProductID AND wo.StartDate = wor.ActualStartDate))
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 190
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- Comparação de texto com texto: comparar com número forçaria a conversão de cada caractere para INT
   SELECT SalesOrderID,
          OrderDate,
-	     CreditCardApprovalCode
+	       CreditCardApprovalCode
     FROM Sales.SalesOrderHeader
    WHERE SUBSTRING(CreditCardApprovalCode, 1, 1) = '1'
      AND SUBSTRING(CreditCardApprovalCode, 3, 1) = '6'
@@ -1184,7 +1159,7 @@ ORDER BY [Name] ASC
 
   SELECT p.[Name],
          (sod.OrderQty * sod.UnitPrice)                         AS NonDiscountSales,
-		 (sod.OrderQty * sod.UnitPrice * sod.UnitPriceDiscount) AS Discount
+		     (sod.OrderQty * sod.UnitPrice * sod.UnitPriceDiscount) AS Discount
     FROM Sales.SalesOrderDetail sod
     JOIN Production.[Product]   p   ON p.ProductID = sod.ProductID
 ORDER BY p.[Name] DESC

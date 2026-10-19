@@ -1,5 +1,5 @@
 ﻿
-USE NORTHWIND
+USE Northwind
 GO
 
 -----------------------------------
@@ -19,13 +19,10 @@ CREATE TABLE #TEMP_NEW_PRODUCTS
 	UnitPrice   DECIMAL(10,2)
 )
 
--- Carga da tabela base, conforme o enunciado
 INSERT INTO #TEMP_NEW_PRODUCTS (ProductName, SupplierId, CategoryId, UnitPrice)
 VALUES ('New Product A', 1, 1, 15.50),
        ('New Product B', 2, 2, 25.00)
 
--- Para não alterar a base, a inserção é feita em uma cópia temporária de Products.
--- O SELECT INTO leva junto a propriedade IDENTITY de ProductID, então os novos produtos recebem 78 e 79
 DROP TABLE IF EXISTS #TEMP_PRODUCTS
 SELECT ProductID,
        ProductName,
@@ -61,7 +58,6 @@ CREATE TABLE #TEMP_UPDATE_PRICE
 	UnitPrice   DECIMAL(10,2)
 )
 
--- A categoria é localizada pelo nome ('Seafood'), e não por um CategoryID fixo
 INSERT INTO #TEMP_UPDATE_PRICE
 SELECT p.ProductID,
 	   p.ProductName,
@@ -78,7 +74,8 @@ UPDATE t
 SELECT p.ProductID, p.ProductName, p.UnitPrice
   FROM Products   p
   JOIN Categories c ON c.CategoryID = p.CategoryID
- WHERE c.CategoryName = 'Seafood' AND p.Discontinued = 0
+ WHERE c.CategoryName = 'Seafood' 
+   AND p.Discontinued = 0
 
 SELECT * FROM #TEMP_UPDATE_PRICE
 DROP TABLE #TEMP_UPDATE_PRICE
@@ -87,7 +84,6 @@ DROP TABLE #TEMP_UPDATE_PRICE
 -- 03
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- Data de referência: último pedido da base (o Northwind termina em 1998)
 DECLARE @RefDate03 DATETIME = ( SELECT MAX(OrderDate) FROM Orders )
 
 DROP TABLE IF EXISTS #TEMP_DELETE_OD
@@ -97,19 +93,16 @@ CREATE TABLE #TEMP_DELETE_OD
 	ProductId INT
 )
 
--- Para não deletar os registros de 'Order Details', os itens que seriam excluídos vão para uma temporária.
--- São os itens de produtos SEM nenhuma venda nos últimos 2 anos (NOT EXISTS), e não os de produtos com alguma venda antiga
 INSERT INTO #TEMP_DELETE_OD
 SELECT od.OrderID,
        od.ProductID
   FROM [Order Details] od
  WHERE NOT EXISTS ( SELECT 1
                       FROM [Order Details] od2
-                      JOIN Orders           o ON o.OrderID = od2.OrderID
+                      JOIN Orders          o   ON o.OrderID = od2.OrderID
                      WHERE od2.ProductID = od.ProductID
-                       AND o.OrderDate  >= DATEADD(YEAR, -2, @RefDate03) )
+                       AND o.OrderDate >= DATEADD(YEAR, -2, @RefDate03) )
 
--- No Northwind padrão o resultado é vazio: a base cobre menos de 2 anos, então todo produto vendido teve venda no período
 SELECT * FROM #TEMP_DELETE_OD ORDER BY ProductId, OrderId
 DROP TABLE #TEMP_DELETE_OD
 
@@ -127,8 +120,6 @@ CREATE TABLE #TEMP_UPDATE_SHIPDATE
 	ShippedDate  DATE
 )
 
--- O Northwind não tem coluna de status: "ainda não enviado" é ShippedDate nulo.
--- O JOIN com Order Details garante que o pedido tem ao menos um item; o DISTINCT evita repetir o pedido a cada item
 INSERT INTO #TEMP_UPDATE_SHIPDATE
 SELECT DISTINCT
        o.OrderID,
@@ -160,8 +151,6 @@ CREATE TABLE #TEMP_INSERT_OD
 	Quantity  SMALLINT
 )
 
--- Último pedido criado: maior OrderID existente
--- Produto mais vendido do último ano: maior soma de quantidade nos 12 meses anteriores ao último pedido da base
 INSERT INTO #TEMP_INSERT_OD (OrderId, ProductId, UnitPrice, Quantity)
 SELECT ( SELECT MAX(OrderID) FROM Orders ),
        p.ProductID,
@@ -182,9 +171,6 @@ DROP TABLE #TEMP_INSERT_OD
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 06
 ------------------------------------------------------------------------------------------------------------------------------------------
-
--- Para não alterar a base, fornecedor e produto são inseridos em temporárias.
--- Nas tabelas reais, o SupplierID do novo fornecedor viria de SCOPE_IDENTITY()
 
 DROP TABLE IF EXISTS #TEMP_INSERT_SUPPLIER
 CREATE TABLE #TEMP_INSERT_SUPPLIER
@@ -250,7 +236,6 @@ CREATE TABLE #TEMP_UPDATE_DISCOUNT
 	Discount  REAL
 )
 
--- Produtos com preço acima do preço médio da SUA categoria (média calculada em Products)
 INSERT INTO #TEMP_UPDATE_DISCOUNT
 SELECT od.OrderID,
        od.ProductID,
@@ -263,9 +248,10 @@ SELECT od.OrderID,
                          FROM Products p2
                         WHERE p2.CategoryID = p.CategoryID )
 
--- Desconto dobrado, limitado a 1: a tabela real tem CHECK de Discount entre 0 e 1
 UPDATE t
-   SET t.Discount = CASE WHEN t.Discount * 2.00 > 1 THEN 1 ELSE t.Discount * 2.00 END
+   SET t.Discount = CASE WHEN t.Discount * 2.00 > 1 THEN 1 
+                         ELSE t.Discount * 2.00 
+						  END
   FROM #TEMP_UPDATE_DISCOUNT t
 
 SELECT od.OrderID,
@@ -274,7 +260,7 @@ SELECT od.OrderID,
        od.Quantity,
        od.Discount
   FROM [Order Details] od
-  JOIN Products         p ON p.ProductID = od.ProductID
+  JOIN Products        p  ON p.ProductID = od.ProductID
  WHERE p.UnitPrice > ( SELECT AVG(p2.UnitPrice)
                          FROM Products p2
                         WHERE p2.CategoryID = p.CategoryID )
@@ -287,8 +273,6 @@ DROP TABLE #TEMP_UPDATE_DISCOUNT
 -- 08
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- Para não deletar os registros da tabela 'Customers', irei armazenar em uma temporária
-
 DROP TABLE IF EXISTS #TEMP_CUSTOMERS_ORDERS
 CREATE TABLE #TEMP_CUSTOMERS_ORDERS
 (
@@ -298,8 +282,6 @@ CREATE TABLE #TEMP_CUSTOMERS_ORDERS
 	Country     VARCHAR(15)
 )
 
--- LEFT JOIN + IS NULL: clientes sem nenhum pedido. Como não têm pedidos, a exclusão não quebra a integridade referencial.
--- (NOT IN deixaria de retornar linhas se existisse algum CustomerID nulo em Orders)
    INSERT INTO #TEMP_CUSTOMERS_ORDERS
    SELECT c.CustomerID,
           c.CompanyName,
@@ -325,7 +307,6 @@ CREATE TABLE #TEMP_UPDATE_COMPANY_NAME
 	Country      VARCHAR(50)
 )
 
--- Fornecedores SEM nenhum produto ativo (NOT EXISTS), e não os que têm algum produto descontinuado
 INSERT INTO #TEMP_UPDATE_COMPANY_NAME
 SELECT s.SupplierID,
        s.CompanyName,
@@ -358,12 +339,6 @@ DROP TABLE #TEMP_UPDATE_COMPANY_NAME;
 -- 10
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- "Para cada novo pedido inserido" pede um trigger AFTER INSERT em Orders.
--- Para não alterar a base, o trigger é criado, testado e desfeito dentro de uma transação.
--- O CREATE TRIGGER vai em EXEC porque precisa ser o primeiro comando do seu próprio lote.
-
--- O ROLLBACK desfaz o pedido de teste, mas não devolve o valor de IDENTITY consumido.
--- Por isso o contador de Orders é guardado aqui e restaurado no final
 DECLARE @IdentOrders10 INT = IDENT_CURRENT('Orders')
 
 BEGIN TRY
@@ -435,8 +410,8 @@ CREATE TABLE #TEMP_UPDATE_PRODUCTS
 )
 
 DECLARE CategoryCursor CURSOR FOR
-SELECT CategoryID 
-  FROM Categories
+ SELECT CategoryID 
+   FROM Categories
 
 OPEN CategoryCursor
 FETCH NEXT FROM CategoryCursor INTO @CategoryId11
@@ -523,7 +498,6 @@ FETCH NEXT FROM InsertProductsCursor INTO @ProductId12, @ProductName12, @Supplie
 
 WHILE @@FETCH_STATUS = 0
 BEGIN
-	-- Insere apenas a linha lida pelo FETCH (as variáveis), uma por volta do loop
 	INSERT INTO #TEMP_INSERT_PROD12
 	VALUES ( @ProductId12, @ProductName12, @SupplierId12, @CategoryId12, @UnitPrice12 )
 
@@ -557,13 +531,12 @@ CREATE TABLE #TEMP_UPDATE_FREIGHT_13
 	NewFreight MONEY
 )
 
--- O filtro é pelo país do CLIENTE (Customers.Country), como pede o enunciado, e não pelo país de entrega
 DECLARE FreightCountryCursor CURSOR FOR
-SELECT o.OrderID,
-       o.Freight
-  FROM Orders    o
-  JOIN Customers c ON c.CustomerID = o.CustomerID
- WHERE c.Country = @Country13
+ SELECT o.OrderID,
+        o.Freight
+   FROM Orders    o
+   JOIN Customers c ON c.CustomerID = o.CustomerID
+  WHERE c.Country = @Country13
 
 OPEN FreightCountryCursor
 FETCH NEXT FROM FreightCountryCursor INTO @OrderId13, @Freight13
@@ -612,19 +585,17 @@ SELECT ProductID
 													 ) 
                         )
 
--- SELECT * FROM #TEMP_DELETE_PROD_14
-
 DECLARE ProductDeleteCursor CURSOR FOR
-SELECT ProductID
-  FROM Products
- WHERE Discontinued = 1 
-   AND ProductID NOT IN ( SELECT DISTINCT ProductID 
-                                     FROM [Order Details]
-                                    WHERE OrderID IN ( SELECT OrderID 
-									                     FROM Orders 
-														WHERE OrderDate >= DATEADD( YEAR, -5, GETDATE() )
-													 ) 
-                        )
+ SELECT ProductID
+   FROM Products
+  WHERE Discontinued = 1 
+    AND ProductID NOT IN ( SELECT DISTINCT ProductID 
+                                      FROM [Order Details]
+                                     WHERE OrderID IN ( SELECT OrderID 
+ 									                     FROM Orders 
+ 														WHERE OrderDate >= DATEADD( YEAR, -5, GETDATE() )
+ 													 ) 
+                         )
 
 OPEN ProductDeleteCursor
 FETCH NEXT FROM ProductDeleteCursor INTO @ProductID14
@@ -662,7 +633,6 @@ CREATE TABLE #TEMP_UPDATE_DISCOUNT_15
 	NewDiscount REAL
 )
 
--- "Pedidos com mais de 5 itens" = pedidos com mais de 5 linhas em Order Details
 DECLARE ProgressiveDiscountCursor CURSOR FOR
   SELECT OrderID,
          COUNT(*) AS QtyItens
@@ -705,5 +675,1003 @@ DROP TABLE #TEMP_UPDATE_DISCOUNT_15
 -- 16
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- PENDENTE: exercícios 16 a 30 ainda não resolvidos
+DECLARE @ProductId     INT,
+        @UnitsInStock  INT,
+        @QtyNecessaria INT
 
+DROP TABLE IF EXISTS #TEMP_REABASTECIMENTO_16
+CREATE TABLE #TEMP_REABASTECIMENTO_16
+(
+    ProductId           INT,
+    QtyNecessaria       INT,
+    DataReabastecimento DATETIME
+)
+
+DECLARE LowStockCursor CURSOR FOR
+ SELECT ProductID,
+        UnitsInStock
+   FROM Products
+  WHERE UnitsInStock < 10
+
+OPEN LowStockCursor
+FETCH NEXT FROM LowStockCursor INTO @ProductId, @UnitsInStock
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    -- Quantidade necessária para levar o estoque até 20 unidades
+    SET @QtyNecessaria = 20 - @UnitsInStock
+
+    INSERT INTO #TEMP_REABASTECIMENTO_16(ProductId, QtyNecessaria, DataReabastecimento)
+    VALUES (@ProductId, @QtyNecessaria, GETDATE())
+
+    FETCH NEXT FROM LowStockCursor INTO @ProductId, @UnitsInStock
+END
+
+CLOSE LowStockCursor
+DEALLOCATE LowStockCursor
+
+SELECT *
+  FROM #TEMP_REABASTECIMENTO_16
+ ORDER BY ProductId
+
+DROP TABLE #TEMP_REABASTECIMENTO_16
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- 17
+------------------------------------------------------------------------------------------------------------------------------------------
+
+DECLARE @RefDate17     DATETIME = (SELECT MAX(OrderDate) FROM Orders),
+        @CustomerId17  CHAR(5),
+        @CompanyName17 VARCHAR(40)
+
+DROP TABLE IF EXISTS #TEMP_NOTIFICACAO_17
+CREATE TABLE #TEMP_NOTIFICACAO_17
+(
+	CustomerId  CHAR(5),
+	CompanyName VARCHAR(40),
+	Mensagem    VARCHAR(200),
+	DataEnvio   DATETIME
+)
+
+DECLARE NotifyCursor CURSOR FOR
+ SELECT c.CustomerID,
+        c.CompanyName
+   FROM Customers c
+  WHERE NOT EXISTS (SELECT 1
+                      FROM Orders o
+                     WHERE o.CustomerID = c.CustomerID
+                       AND o.OrderDate >= DATEADD(YEAR, -2, @RefDate17))
+
+OPEN NotifyCursor
+FETCH NEXT FROM NotifyCursor INTO @CustomerId17, @CompanyName17
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+	INSERT INTO #TEMP_NOTIFICACAO_17 (CustomerId, CompanyName, Mensagem, DataEnvio)
+	VALUES ( @CustomerId17, @CompanyName17, 'Cliente sem pedidos nos ultimos 2 anos.', GETDATE() )
+
+	FETCH NEXT FROM NotifyCursor INTO @CustomerId17, @CompanyName17
+END
+
+CLOSE NotifyCursor
+DEALLOCATE NotifyCursor
+
+SELECT * FROM #TEMP_NOTIFICACAO_17 ORDER BY CustomerId
+DROP TABLE #TEMP_NOTIFICACAO_17
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- 18
+------------------------------------------------------------------------------------------------------------------------------------------
+
+DECLARE @ProductId18 INT,
+        @Receita18   MONEY
+
+DROP TABLE IF EXISTS #TEMP_RECEITA_PRODUTO_18
+CREATE TABLE #TEMP_RECEITA_PRODUTO_18
+(
+	ProductId   INT,
+	ProductName VARCHAR(40),
+	Receita     MONEY
+)
+
+DECLARE RevenueProductCursor CURSOR FOR
+ SELECT ProductID
+   FROM Products
+
+OPEN RevenueProductCursor
+FETCH NEXT FROM RevenueProductCursor INTO @ProductId18
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+	SELECT @Receita18 = ISNULL(SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)), 0)
+	  FROM [Order Details] od
+	 WHERE od.ProductID = @ProductId18
+
+	INSERT INTO #TEMP_RECEITA_PRODUTO_18 (ProductId, ProductName, Receita)
+	SELECT ProductID,
+	       ProductName,
+	       @Receita18
+	  FROM Products
+	 WHERE ProductID = @ProductId18
+
+	FETCH NEXT FROM RevenueProductCursor INTO @ProductId18
+END
+
+CLOSE RevenueProductCursor
+DEALLOCATE RevenueProductCursor
+
+SELECT * FROM #TEMP_RECEITA_PRODUTO_18 ORDER BY Receita DESC, ProductId
+DROP TABLE #TEMP_RECEITA_PRODUTO_18
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- 19
+------------------------------------------------------------------------------------------------------------------------------------------
+
+DECLARE @SupplierId19 INT
+
+DROP TABLE IF EXISTS #TEMP_SUPPLIERS_19
+CREATE TABLE #TEMP_SUPPLIERS_19
+(
+	SupplierId INT
+)
+
+INSERT INTO #TEMP_SUPPLIERS_19 (SupplierId)
+VALUES (1), (2), (3)
+
+DROP TABLE IF EXISTS #TEMP_BACKUP_PRODUTOS_19
+CREATE TABLE #TEMP_BACKUP_PRODUTOS_19
+(
+	ProductId    INT,
+	ProductName  VARCHAR(40),
+	SupplierId   INT,
+	CategoryId   INT,
+	UnitPrice    MONEY,
+	UnitsInStock SMALLINT
+)
+
+DECLARE SupplierBackupCursor CURSOR FOR
+ SELECT SupplierId
+   FROM #TEMP_SUPPLIERS_19
+
+OPEN SupplierBackupCursor
+FETCH NEXT FROM SupplierBackupCursor INTO @SupplierId19
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+	INSERT INTO #TEMP_BACKUP_PRODUTOS_19
+	SELECT ProductID,
+	       ProductName,
+	       SupplierID,
+	       CategoryID,
+	       UnitPrice,
+	       UnitsInStock
+	  FROM Products
+	 WHERE SupplierID = @SupplierId19
+
+	FETCH NEXT FROM SupplierBackupCursor INTO @SupplierId19
+END
+
+CLOSE SupplierBackupCursor
+DEALLOCATE SupplierBackupCursor
+
+SELECT * FROM #TEMP_BACKUP_PRODUTOS_19 ORDER BY SupplierId, ProductId
+DROP TABLE #TEMP_SUPPLIERS_19
+DROP TABLE #TEMP_BACKUP_PRODUTOS_19
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- 20
+------------------------------------------------------------------------------------------------------------------------------------------
+
+-- No banco Northwind classico nao tem peso em Products
+-- Entao vou assumir que: peso unitario simulado sera (ProductID % 10) + 1, e frete novo = peso total * 0.50
+
+DECLARE @OrderId20    INT,
+        @OldFreight20 MONEY,
+        @PesoTotal20  DECIMAL(10,2),
+        @NewFreight20 MONEY
+
+DROP TABLE IF EXISTS #TEMP_UPDATE_FREIGHT_PESO_20
+CREATE TABLE #TEMP_UPDATE_FREIGHT_PESO_20
+(
+	OrderId    INT,
+	PesoTotal  DECIMAL(10,2),
+	OldFreight MONEY,
+	NewFreight MONEY
+)
+
+DECLARE FreightWeightCursor CURSOR FOR
+ SELECT OrderID,
+        Freight
+   FROM Orders
+
+OPEN FreightWeightCursor
+FETCH NEXT FROM FreightWeightCursor INTO @OrderId20, @OldFreight20
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+	SELECT @PesoTotal20 = ISNULL(SUM(od.Quantity * ((p.ProductID % 10) + 1)), 0)
+	  FROM [Order Details] od
+	  JOIN Products        p  ON p.ProductID = od.ProductID
+	 WHERE od.OrderID = @OrderId20
+
+	SET @NewFreight20 = CAST(@PesoTotal20 * 0.50 AS MONEY)
+
+	INSERT INTO #TEMP_UPDATE_FREIGHT_PESO_20 (OrderId, PesoTotal, OldFreight, NewFreight)
+	VALUES (@OrderId20, @PesoTotal20, @OldFreight20, @NewFreight20)
+
+	FETCH NEXT FROM FreightWeightCursor INTO @OrderId20, @OldFreight20
+END
+
+CLOSE FreightWeightCursor
+DEALLOCATE FreightWeightCursor
+
+SELECT * FROM #TEMP_UPDATE_FREIGHT_PESO_20 ORDER BY OrderId
+DROP TABLE #TEMP_UPDATE_FREIGHT_PESO_20
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- 21
+------------------------------------------------------------------------------------------------------------------------------------------
+
+DECLARE @ProductId21 INT
+
+DROP TABLE IF EXISTS #TEMP_DISCONTINUED_21
+CREATE TABLE #TEMP_DISCONTINUED_21
+(
+	ProductId    INT,
+	ProductName  VARCHAR(40),
+	Discontinued BIT,
+	DataRegistro DATETIME
+)
+
+DECLARE DiscCursor CURSOR FOR
+ SELECT ProductID
+   FROM Products
+  WHERE Discontinued = 1
+
+-- OPEN antes do TRY e CLOSE/DEALLOCATE depois do CATCH: o cursor e liberado mesmo se der erro
+OPEN DiscCursor
+
+BEGIN TRY
+	BEGIN TRAN
+
+	FETCH NEXT FROM DiscCursor INTO @ProductId21
+
+	WHILE @@FETCH_STATUS = 0
+	BEGIN
+		INSERT INTO #TEMP_DISCONTINUED_21 (ProductId, ProductName, Discontinued, DataRegistro)
+		SELECT ProductID,
+		       ProductName,
+		       Discontinued,
+		       GETDATE()
+		  FROM Products
+		 WHERE ProductID = @ProductId21
+
+		FETCH NEXT FROM DiscCursor INTO @ProductId21
+	END
+
+	COMMIT TRAN
+END TRY
+BEGIN CATCH
+	IF @@TRANCOUNT > 0
+		ROLLBACK TRAN
+
+	PRINT 'ERRO: ' + ERROR_MESSAGE()
+END CATCH
+
+CLOSE DiscCursor
+DEALLOCATE DiscCursor
+
+SELECT * FROM #TEMP_DISCONTINUED_21 ORDER BY ProductId
+DROP TABLE #TEMP_DISCONTINUED_21
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- 22
+------------------------------------------------------------------------------------------------------------------------------------------
+
+DECLARE @CategoryId22 INT
+
+DROP TABLE IF EXISTS #TEMP_PRICE_22
+CREATE TABLE #TEMP_PRICE_22
+(
+	ProductId  INT,
+	CategoryId INT,
+	OldPrice   MONEY,
+	NewPrice   MONEY
+)
+
+BEGIN TRAN
+
+DECLARE CatPriceCursor CURSOR FOR
+  SELECT CategoryID
+    FROM Categories
+ORDER BY CategoryID
+
+OPEN CatPriceCursor
+FETCH NEXT FROM CatPriceCursor INTO @CategoryId22
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+	BEGIN TRY
+		SAVE TRAN SaveCat22
+
+		INSERT INTO #TEMP_PRICE_22 (ProductId, CategoryId, OldPrice, NewPrice)
+		SELECT ProductID,
+		       CategoryID,
+		       UnitPrice,
+		       UnitPrice * 1.05
+		  FROM Products
+		 WHERE CategoryID = @CategoryId22
+
+		-- O cenario @CategoryId22 = 8 eh so pra simular um erro. Fica DEPOIS do INSERT:
+		-- assim os produtos da categoria 8 ja foram gravados e o ROLLBACK ao savepoint precisa desfaze-los
+		IF @CategoryId22 = 8
+			RAISERROR('Falha simulada na categoria 8', 16, 1)
+	END TRY
+	BEGIN CATCH
+		IF XACT_STATE() = 1
+			ROLLBACK TRAN SaveCat22
+
+		PRINT 'Categoria ' + CAST(@CategoryId22 AS VARCHAR(10)) + ' revertida: ' + ERROR_MESSAGE()
+	END CATCH
+
+	FETCH NEXT FROM CatPriceCursor INTO @CategoryId22
+END
+
+CLOSE CatPriceCursor
+DEALLOCATE CatPriceCursor
+
+COMMIT TRAN
+
+SELECT * FROM #TEMP_PRICE_22 ORDER BY CategoryId, ProductId
+DROP TABLE #TEMP_PRICE_22
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- 23
+------------------------------------------------------------------------------------------------------------------------------------------
+
+DECLARE @Anos23    INT = 5,
+        @RefDate23 DATETIME = (SELECT MAX(OrderDate) FROM Orders),
+        @OrderId23 INT
+
+DROP TABLE IF EXISTS #TEMP_ORDERS_23
+CREATE TABLE #TEMP_ORDERS_23
+(
+	OrderId   INT,
+	OrderDate DATETIME
+)
+
+DROP TABLE IF EXISTS #TEMP_OD_23
+CREATE TABLE #TEMP_OD_23
+(
+	OrderId   INT,
+	ProductId INT
+)
+
+DROP TABLE IF EXISTS #TEMP_EXCLUIDOS_23
+CREATE TABLE #TEMP_EXCLUIDOS_23
+(
+	OrderId   INT,
+	ProductId INT,
+	Etapa     VARCHAR(20)
+)
+
+INSERT INTO #TEMP_ORDERS_23 (OrderId, OrderDate)
+SELECT OrderID,
+       OrderDate
+  FROM Orders
+ WHERE OrderDate < DATEADD(YEAR, -@Anos23, @RefDate23)
+
+INSERT INTO #TEMP_OD_23 (OrderId, ProductId)
+SELECT od.OrderID,
+       od.ProductID
+  FROM [Order Details] od
+  JOIN #TEMP_ORDERS_23 o  ON o.OrderId = od.OrderID
+
+DECLARE DeleteOrderCursor CURSOR FOR
+  SELECT OrderId
+    FROM #TEMP_ORDERS_23
+ORDER BY OrderId
+
+-- OPEN antes do TRY e CLOSE/DEALLOCATE depois do CATCH: o cursor e liberado mesmo se der erro
+OPEN DeleteOrderCursor
+
+BEGIN TRY
+	BEGIN TRAN
+
+	FETCH NEXT FROM DeleteOrderCursor INTO @OrderId23
+
+	WHILE @@FETCH_STATUS = 0
+	BEGIN
+		INSERT INTO #TEMP_EXCLUIDOS_23 (OrderId, ProductId, Etapa)
+		SELECT OrderId,
+		       ProductId,
+		       'Order Details'
+		  FROM #TEMP_OD_23
+		 WHERE OrderId = @OrderId23
+
+		DELETE FROM #TEMP_OD_23
+		 WHERE OrderId = @OrderId23
+
+		INSERT INTO #TEMP_EXCLUIDOS_23 (OrderId, ProductId, Etapa)
+		VALUES (@OrderId23, NULL, 'Orders')
+
+		DELETE FROM #TEMP_ORDERS_23
+		 WHERE OrderId = @OrderId23
+
+		FETCH NEXT FROM DeleteOrderCursor INTO @OrderId23
+	END
+
+	COMMIT TRAN
+END TRY
+BEGIN CATCH
+	IF @@TRANCOUNT > 0
+		ROLLBACK TRAN
+
+	PRINT 'ERRO: ' + ERROR_MESSAGE()
+END CATCH
+
+CLOSE DeleteOrderCursor
+DEALLOCATE DeleteOrderCursor
+
+SELECT * FROM #TEMP_EXCLUIDOS_23 ORDER BY OrderId, Etapa, ProductId
+SELECT * FROM #TEMP_OD_23
+SELECT * FROM #TEMP_ORDERS_23
+
+DROP TABLE #TEMP_EXCLUIDOS_23
+DROP TABLE #TEMP_OD_23
+DROP TABLE #TEMP_ORDERS_23
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- 24
+------------------------------------------------------------------------------------------------------------------------------------------
+
+DECLARE @RefDate24    DATETIME = (SELECT MAX(OrderDate) FROM Orders),
+        @CustomerId24 CHAR(5)
+
+DROP TABLE IF EXISTS #TEMP_ARCHIVED_CUSTOMERS_24
+CREATE TABLE #TEMP_ARCHIVED_CUSTOMERS_24
+(
+	CustomerId  CHAR(5),
+	CompanyName VARCHAR(40),
+	Country     VARCHAR(15),
+	DataArquivo DATETIME
+)
+
+DECLARE ArchiveCustomerCursor CURSOR FOR
+ SELECT c.CustomerID
+   FROM Customers c
+  WHERE NOT EXISTS (SELECT 1
+                      FROM Orders o
+                     WHERE o.CustomerID = c.CustomerID
+                       AND o.OrderDate >= DATEADD(YEAR, -3, @RefDate24))
+
+-- OPEN antes do TRY e CLOSE/DEALLOCATE depois do CATCH: o cursor e liberado mesmo se der erro
+OPEN ArchiveCustomerCursor
+
+BEGIN TRY
+	BEGIN TRAN
+
+	FETCH NEXT FROM ArchiveCustomerCursor INTO @CustomerId24
+
+	WHILE @@FETCH_STATUS = 0
+	BEGIN
+		INSERT INTO #TEMP_ARCHIVED_CUSTOMERS_24 (CustomerId, CompanyName, Country, DataArquivo)
+		SELECT CustomerID,
+		       CompanyName,
+		       Country,
+		       GETDATE()
+		  FROM Customers
+		 WHERE CustomerID = @CustomerId24
+
+		FETCH NEXT FROM ArchiveCustomerCursor INTO @CustomerId24
+	END
+
+	COMMIT TRAN
+END TRY
+BEGIN CATCH
+	IF @@TRANCOUNT > 0
+		ROLLBACK TRAN
+
+	PRINT 'ERRO: ' + ERROR_MESSAGE()
+END CATCH
+
+CLOSE ArchiveCustomerCursor
+DEALLOCATE ArchiveCustomerCursor
+
+SELECT * FROM #TEMP_ARCHIVED_CUSTOMERS_24 ORDER BY CustomerId
+DROP TABLE #TEMP_ARCHIVED_CUSTOMERS_24
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- 25
+------------------------------------------------------------------------------------------------------------------------------------------
+
+DECLARE @ProductId25 INT
+
+DROP TABLE IF EXISTS #TEMP_STOCK_25
+CREATE TABLE #TEMP_STOCK_25
+(
+	ProductId    INT,
+	UnitsInStock SMALLINT
+)
+
+DROP TABLE IF EXISTS #TEMP_RESTOCK_LOG_25
+CREATE TABLE #TEMP_RESTOCK_LOG_25
+(
+	ProductId           INT,
+	QtyAnterior         SMALLINT,
+	QtyNova             SMALLINT,
+	DataReabastecimento DATETIME
+)
+
+INSERT INTO #TEMP_STOCK_25 (ProductId, UnitsInStock)
+SELECT ProductID,
+       UnitsInStock
+  FROM Products
+ WHERE UnitsInStock < 10
+
+DECLARE RestockCursor CURSOR FOR
+ SELECT ProductId
+   FROM #TEMP_STOCK_25
+
+-- OPEN antes do TRY e CLOSE/DEALLOCATE depois do CATCH: o cursor e liberado mesmo se der erro
+OPEN RestockCursor
+
+BEGIN TRY
+	BEGIN TRAN
+
+	FETCH NEXT FROM RestockCursor INTO @ProductId25
+
+	WHILE @@FETCH_STATUS = 0
+	BEGIN
+		INSERT INTO #TEMP_RESTOCK_LOG_25 (ProductId, QtyAnterior, QtyNova, DataReabastecimento)
+		SELECT ProductId,
+		       UnitsInStock,
+		       20,
+		       GETDATE()
+		  FROM #TEMP_STOCK_25
+		 WHERE ProductId = @ProductId25
+
+		UPDATE #TEMP_STOCK_25
+		   SET UnitsInStock = 20
+		 WHERE ProductId = @ProductId25
+
+		FETCH NEXT FROM RestockCursor INTO @ProductId25
+	END
+
+	COMMIT TRAN
+END TRY
+BEGIN CATCH
+	IF @@TRANCOUNT > 0
+		ROLLBACK TRAN
+
+	PRINT 'ERRO: ' + ERROR_MESSAGE()
+END CATCH
+
+CLOSE RestockCursor
+DEALLOCATE RestockCursor
+
+SELECT * FROM #TEMP_RESTOCK_LOG_25 ORDER BY ProductId
+SELECT * FROM #TEMP_STOCK_25 ORDER BY ProductId
+
+DROP TABLE #TEMP_RESTOCK_LOG_25
+DROP TABLE #TEMP_STOCK_25
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- 26
+------------------------------------------------------------------------------------------------------------------------------------------
+
+DECLARE @Region26  VARCHAR(15),
+        @OrderId26 INT,
+        @Freight26 MONEY
+
+DROP TABLE IF EXISTS #TEMP_FREIGHT_REGIAO_26
+CREATE TABLE #TEMP_FREIGHT_REGIAO_26
+(
+	OrderId    INT,
+	ShipRegion VARCHAR(15),
+	OldFreight MONEY,
+	NewFreight MONEY
+)
+
+BEGIN TRAN
+
+DECLARE RegionCursor CURSOR FOR
+ SELECT DISTINCT 
+        ISNULL(ShipRegion, '(sem regiao)')
+   FROM Orders
+  ORDER BY 1
+
+OPEN RegionCursor
+FETCH NEXT FROM RegionCursor INTO @Region26
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+	BEGIN TRY
+		SAVE TRAN SaveRegion26
+
+		DECLARE OrderRegionCursor CURSOR FOR
+		 SELECT OrderID,
+		        Freight
+		   FROM Orders
+		  WHERE ISNULL(ShipRegion, '(sem regiao)') = @Region26
+
+		OPEN OrderRegionCursor
+		FETCH NEXT FROM OrderRegionCursor INTO @OrderId26, @Freight26
+
+		WHILE @@FETCH_STATUS = 0
+		BEGIN
+			INSERT INTO #TEMP_FREIGHT_REGIAO_26 (OrderId, ShipRegion, OldFreight, NewFreight)
+			VALUES (@OrderId26, @Region26, @Freight26,
+			        CASE WHEN @Region26 = '(sem regiao)' THEN @Freight26 * 1.05
+			             ELSE @Freight26 * 1.15
+			              END)
+
+			FETCH NEXT FROM OrderRegionCursor INTO @OrderId26, @Freight26
+		END
+
+		-- Erro simulado na regiao SP: so aquele grupo e revertido. Fica DEPOIS dos INSERTs e com o cursor interno
+		-- ainda aberto, para testar o ROLLBACK ao savepoint e a liberacao do cursor no CATCH
+		IF @Region26 = 'SP'
+			RAISERROR('Falha simulada na regiao SP', 16, 1)
+
+		CLOSE OrderRegionCursor
+		DEALLOCATE OrderRegionCursor
+	END TRY
+	BEGIN CATCH
+		IF XACT_STATE() = 1
+			ROLLBACK TRAN SaveRegion26
+
+		-- Se o erro aconteceu com o cursor interno aberto, ele precisa ser liberado aqui;
+		-- senao o DECLARE da proxima regiao falha com "Ja existe um cursor com o nome 'OrderRegionCursor'"
+		IF CURSOR_STATUS('global', 'OrderRegionCursor') >= -1
+			DEALLOCATE OrderRegionCursor
+
+		PRINT 'Regiao ' + @Region26 + ' revertida: ' + ERROR_MESSAGE()
+	END CATCH
+
+	FETCH NEXT FROM RegionCursor INTO @Region26
+END
+
+CLOSE RegionCursor
+DEALLOCATE RegionCursor
+
+COMMIT TRAN
+
+SELECT * FROM #TEMP_FREIGHT_REGIAO_26 ORDER BY ShipRegion, OrderId
+DROP TABLE #TEMP_FREIGHT_REGIAO_26
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- 27
+------------------------------------------------------------------------------------------------------------------------------------------
+
+DECLARE @RefDate27   DATETIME = (SELECT MAX(OrderDate) FROM Orders),
+        @ProductId27 INT
+
+DROP TABLE IF EXISTS #TEMP_REATIVAR_27
+CREATE TABLE #TEMP_REATIVAR_27
+(
+	ProductId       INT,
+	ProductName     VARCHAR(40),
+	OldDiscontinued BIT,
+	NewDiscontinued BIT
+)
+
+DECLARE ReactivateCursor CURSOR FOR
+ SELECT p.ProductID
+   FROM Products p
+  WHERE p.Discontinued = 1
+    AND EXISTS (SELECT 1
+                  FROM [Order Details] od
+                  JOIN Orders          o  ON o.OrderID = od.OrderID
+                 WHERE od.ProductID = p.ProductID
+                   AND o.OrderDate >= DATEADD(YEAR, -2, @RefDate27))
+
+-- OPEN antes do TRY e CLOSE/DEALLOCATE depois do CATCH: o cursor e liberado mesmo se der erro
+OPEN ReactivateCursor
+
+BEGIN TRY
+	BEGIN TRAN
+
+	FETCH NEXT FROM ReactivateCursor INTO @ProductId27
+
+	WHILE @@FETCH_STATUS = 0
+	BEGIN
+		INSERT INTO #TEMP_REATIVAR_27 (ProductId, ProductName, OldDiscontinued, NewDiscontinued)
+		SELECT ProductID,
+		       ProductName,
+		       Discontinued,
+		       0
+		  FROM Products
+		 WHERE ProductID = @ProductId27
+
+		FETCH NEXT FROM ReactivateCursor INTO @ProductId27
+	END
+
+	COMMIT TRAN
+END TRY
+BEGIN CATCH
+	IF @@TRANCOUNT > 0
+		ROLLBACK TRAN
+
+	PRINT 'ERRO: ' + ERROR_MESSAGE()
+END CATCH
+
+CLOSE ReactivateCursor
+DEALLOCATE ReactivateCursor
+
+SELECT * FROM #TEMP_REATIVAR_27 ORDER BY ProductId
+DROP TABLE #TEMP_REATIVAR_27
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- 28
+------------------------------------------------------------------------------------------------------------------------------------------
+
+DECLARE @OrderId28   INT = ( SELECT MIN(OrderID) FROM Orders ),
+        @ProductId28 INT,
+        @Quantity28  SMALLINT,
+        @Stock28     SMALLINT
+
+DROP TABLE IF EXISTS #TEMP_STOCK_28
+CREATE TABLE #TEMP_STOCK_28
+(
+	ProductId    INT,
+	UnitsInStock SMALLINT
+)
+
+DROP TABLE IF EXISTS #TEMP_STOCK_ADJ_28
+CREATE TABLE #TEMP_STOCK_ADJ_28
+(
+	OrderId    INT,
+	ProductId  INT,
+	Quantity   SMALLINT,
+	StockAntes SMALLINT,
+	StockDepois SMALLINT
+)
+
+INSERT INTO #TEMP_STOCK_28 (ProductId, UnitsInStock)
+SELECT DISTINCT
+       p.ProductID,
+       p.UnitsInStock
+  FROM Products        p
+  JOIN [Order Details] od ON od.ProductID = p.ProductID
+ WHERE od.OrderID = @OrderId28
+
+DECLARE StockOrderCursor CURSOR FOR
+ SELECT ProductID,
+        Quantity
+   FROM [Order Details]
+  WHERE OrderID = @OrderId28
+
+-- OPEN antes do TRY e CLOSE/DEALLOCATE depois do CATCH: o cursor e liberado mesmo se der erro
+OPEN StockOrderCursor
+
+BEGIN TRY
+	BEGIN TRAN
+
+	FETCH NEXT FROM StockOrderCursor INTO @ProductId28, @Quantity28
+
+	WHILE @@FETCH_STATUS = 0
+	BEGIN
+		SELECT @Stock28 = UnitsInStock
+		  FROM #TEMP_STOCK_28
+		 WHERE ProductId = @ProductId28
+
+		-- Estoque negativo gera erro e desfaz o pedido inteiro
+		IF @Stock28 < @Quantity28
+			RAISERROR('Estoque insuficiente para o produto %d', 16, 1, @ProductId28)
+
+		INSERT INTO #TEMP_STOCK_ADJ_28 (OrderId, ProductId, Quantity, StockAntes, StockDepois)
+		VALUES (@OrderId28, @ProductId28, @Quantity28, @Stock28, @Stock28 - @Quantity28)
+
+		UPDATE #TEMP_STOCK_28
+		   SET UnitsInStock = UnitsInStock - @Quantity28
+		 WHERE ProductId = @ProductId28
+
+		FETCH NEXT FROM StockOrderCursor INTO @ProductId28, @Quantity28
+	END
+
+	COMMIT TRAN
+END TRY
+BEGIN CATCH
+	IF @@TRANCOUNT > 0
+		ROLLBACK TRAN
+
+	PRINT 'ERRO: ' + ERROR_MESSAGE()
+END CATCH
+
+CLOSE StockOrderCursor
+DEALLOCATE StockOrderCursor
+
+SELECT @OrderId28 AS OrderId
+SELECT * FROM #TEMP_STOCK_ADJ_28 ORDER BY ProductId
+SELECT * FROM #TEMP_STOCK_28 ORDER BY ProductId
+
+DROP TABLE #TEMP_STOCK_ADJ_28
+DROP TABLE #TEMP_STOCK_28
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- 29
+------------------------------------------------------------------------------------------------------------------------------------------
+
+DECLARE @CategoryId29 INT,
+        @Receita29    MONEY
+
+DROP TABLE IF EXISTS #TEMP_CATEGORY_REVENUE_29
+CREATE TABLE #TEMP_CATEGORY_REVENUE_29
+(
+	CategoryId   INT,
+	CategoryName VARCHAR(15),
+	Receita      MONEY
+)
+
+BEGIN TRAN
+
+DECLARE CategoryRevenueCursor CURSOR FOR
+  SELECT CategoryID
+    FROM Categories
+ORDER BY CategoryID
+
+OPEN CategoryRevenueCursor
+FETCH NEXT FROM CategoryRevenueCursor INTO @CategoryId29
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+	BEGIN TRY
+		SAVE TRAN SaveRev29
+
+		SELECT @Receita29 = ISNULL(SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)), 0)
+		  FROM [Order Details] od
+		  JOIN Products        p  ON p.ProductID = od.ProductID
+		 WHERE p.CategoryID = @CategoryId29
+
+		INSERT INTO #TEMP_CATEGORY_REVENUE_29 (CategoryId, CategoryName, Receita)
+		SELECT CategoryID,
+		       CategoryName,
+		       @Receita29
+		  FROM Categories
+		 WHERE CategoryID = @CategoryId29
+
+		-- Cada categoria e confirmada no proprio savepoint. Falha simulada propositalmente na categoria 8,
+		-- DEPOIS do INSERT: a receita da categoria 8 ja foi gravada e o ROLLBACK ao savepoint precisa desfaze-la
+		IF @CategoryId29 = 8
+			RAISERROR('Falha simulada na categoria 8', 16, 1)
+	END TRY
+	BEGIN CATCH
+		IF XACT_STATE() = 1
+			ROLLBACK TRAN SaveRev29
+
+		PRINT 'Categoria ' + CAST(@CategoryId29 AS VARCHAR(10)) + ' revertida: ' + ERROR_MESSAGE()
+	END CATCH
+
+	FETCH NEXT FROM CategoryRevenueCursor INTO @CategoryId29
+END
+
+CLOSE CategoryRevenueCursor
+DEALLOCATE CategoryRevenueCursor
+
+COMMIT TRAN
+
+SELECT * FROM #TEMP_CATEGORY_REVENUE_29 ORDER BY CategoryId
+DROP TABLE #TEMP_CATEGORY_REVENUE_29
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- 30
+------------------------------------------------------------------------------------------------------------------------------------------
+
+DECLARE @Anos30    INT = 10,
+        @RefDate30 DATETIME = (SELECT MAX(OrderDate) FROM Orders),
+        @OrderId30 INT
+
+DROP TABLE IF EXISTS #TEMP_ORDERS_30
+CREATE TABLE #TEMP_ORDERS_30
+(
+	OrderId    INT,
+	CustomerId CHAR(5),
+	OrderDate  DATETIME
+)
+
+DROP TABLE IF EXISTS #TEMP_OD_30
+CREATE TABLE #TEMP_OD_30
+(
+	OrderId   INT,
+	ProductId INT,
+	UnitPrice MONEY,
+	Quantity  SMALLINT,
+	Discount  REAL
+)
+
+DROP TABLE IF EXISTS #TEMP_ARCHIVED_ORDERS_30
+CREATE TABLE #TEMP_ARCHIVED_ORDERS_30
+(
+	OrderId    INT,
+	CustomerId CHAR(5),
+	OrderDate  DATETIME
+)
+
+DROP TABLE IF EXISTS #TEMP_ARCHIVED_OD_30
+CREATE TABLE #TEMP_ARCHIVED_OD_30
+(
+	OrderId   INT,
+	ProductId INT,
+	UnitPrice MONEY,
+	Quantity  SMALLINT,
+	Discount  REAL
+)
+
+INSERT INTO #TEMP_ORDERS_30 (OrderId, CustomerId, OrderDate)
+SELECT OrderID,
+       CustomerID,
+       OrderDate
+  FROM Orders
+ WHERE OrderDate < DATEADD(YEAR, -@Anos30, @RefDate30)
+
+INSERT INTO #TEMP_OD_30 (OrderId, ProductId, UnitPrice, Quantity, Discount)
+SELECT od.OrderID,
+       od.ProductID,
+       od.UnitPrice,
+       od.Quantity,
+       od.Discount
+  FROM [Order Details] od
+  JOIN #TEMP_ORDERS_30 o ON o.OrderId = od.OrderID
+
+DECLARE ArchiveOrderCursor CURSOR LOCAL FAST_FORWARD FOR
+  SELECT OrderId
+    FROM #TEMP_ORDERS_30
+ORDER BY OrderId
+
+-- OPEN antes do TRY e CLOSE/DEALLOCATE depois do CATCH: o cursor e liberado mesmo se der erro
+OPEN ArchiveOrderCursor
+
+BEGIN TRY
+	BEGIN TRAN
+
+	FETCH NEXT FROM ArchiveOrderCursor INTO @OrderId30
+
+	WHILE @@FETCH_STATUS = 0
+	BEGIN
+		INSERT INTO #TEMP_ARCHIVED_OD_30 (OrderId, ProductId, UnitPrice, Quantity, Discount)
+		SELECT OrderId,
+		       ProductId,
+		       UnitPrice,
+		       Quantity,
+		       Discount
+		  FROM #TEMP_OD_30
+		 WHERE OrderId = @OrderId30
+
+		DELETE FROM #TEMP_OD_30
+		 WHERE OrderId = @OrderId30
+
+		INSERT INTO #TEMP_ARCHIVED_ORDERS_30 (OrderId, CustomerId, OrderDate)
+		SELECT OrderId,
+		       CustomerId,
+		       OrderDate
+		  FROM #TEMP_ORDERS_30
+		 WHERE OrderId = @OrderId30
+
+		DELETE FROM #TEMP_ORDERS_30
+		 WHERE OrderId = @OrderId30
+
+		FETCH NEXT FROM ArchiveOrderCursor INTO @OrderId30
+	END
+
+	COMMIT TRAN
+END TRY
+BEGIN CATCH
+	IF @@TRANCOUNT > 0
+		ROLLBACK TRAN
+
+	PRINT 'ERRO: ' + ERROR_MESSAGE()
+END CATCH
+
+CLOSE ArchiveOrderCursor
+DEALLOCATE ArchiveOrderCursor
+
+SELECT * FROM #TEMP_ARCHIVED_ORDERS_30 ORDER BY OrderId
+SELECT * FROM #TEMP_ARCHIVED_OD_30 ORDER BY OrderId, ProductId
+SELECT * FROM #TEMP_ORDERS_30
+SELECT * FROM #TEMP_OD_30
+
+DROP TABLE #TEMP_ARCHIVED_OD_30
+DROP TABLE #TEMP_ARCHIVED_ORDERS_30
+DROP TABLE #TEMP_OD_30
+DROP TABLE #TEMP_ORDERS_30

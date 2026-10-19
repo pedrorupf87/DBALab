@@ -70,7 +70,6 @@ ORDER BY [Name]
 -- 05
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- O enunciado pede ordem crescente de SubTotal
   SELECT SalesOrderID,
          CustomerID,
   	     OrderDate,
@@ -104,7 +103,7 @@ ORDER BY CustomerID ASC
 
   SELECT CustomerID,
          SalesPersonID,
-		 AVG(SubTotal) AS AvgSubTotal,
+		     AVG(SubTotal) AS AvgSubTotal,
          SUM(SubTotal) AS SumSubTotal
     FROM Sales.SalesOrderHeader
 GROUP BY CustomerID, SalesPersonID
@@ -138,7 +137,7 @@ GROUP BY LocationID * 10
          p.FirstName,
   	     p.LastName,
   	     ph.PhoneNumber
-    FROM Person.Person p
+    FROM Person.Person      p
     JOIN Person.PersonPhone ph ON ph.BusinessEntityID = p.BusinessEntityID
    WHERE p.LastName LIKE 'L%'
 ORDER BY p.LastName, p.FirstName
@@ -147,10 +146,9 @@ ORDER BY p.LastName, p.FirstName
 -- 12
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- Sem filtro: o enunciado não exclui os pedidos sem vendedor (SalesPersonID nulo)
   SELECT SalesPersonID,
          CustomerID,
-		 SUM(SubTotal) AS SumSubTotal
+		     SUM(SubTotal) AS SumSubTotal
     FROM Sales.SalesOrderHeader
 GROUP BY ROLLUP (SalesPersonID, CustomerID)
 
@@ -160,7 +158,7 @@ GROUP BY ROLLUP (SalesPersonID, CustomerID)
 
   SELECT LocationID,
          Shelf,
-		 SUM(Quantity) AS TotalQuantity
+		     SUM(Quantity) AS TotalQuantity
     FROM Production.ProductInventory
 GROUP BY CUBE (LocationID, Shelf)
 ORDER BY TotalQuantity DESC
@@ -171,7 +169,7 @@ ORDER BY TotalQuantity DESC
 
   SELECT LocationID,
          Shelf,
-		 SUM(Quantity) AS TotalQuantity
+		     SUM(Quantity) AS TotalQuantity
     FROM Production.ProductInventory
 GROUP BY GROUPING SETS (ROLLUP (LocationID, Shelf), CUBE (LocationID, Shelf))
 ORDER BY TotalQuantity DESC
@@ -193,7 +191,7 @@ ORDER BY LocationID
   SELECT a.City,
          COUNT(bea.BusinessEntityID) AS NumberOfEmployees
     FROM Person.BusinessEntityAddress bea
-	JOIN Person.[Address] a ON a.AddressID = bea.AddressID
+	  JOIN Person.[Address]             a   ON a.AddressID = bea.AddressID
 GROUP BY a.City
 ORDER BY a.City
 
@@ -232,13 +230,12 @@ ORDER BY ContactTypeID DESC
 -- 20
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- O tipo de contato é localizado pelo nome, e não por um ContactTypeID fixo
   SELECT p.BusinessEntityID,
          p.LastName,
-		 p.FirstName
+		     p.FirstName
     FROM Person.BusinessEntityContact bec
-	JOIN Person.ContactType ct ON ct.ContactTypeID = bec.ContactTypeID
-	JOIN Person.Person p ON p.BusinessEntityID = bec.PersonID
+	  JOIN Person.ContactType           ct  ON ct.ContactTypeID = bec.ContactTypeID
+	  JOIN Person.Person                p   ON p.BusinessEntityID = bec.PersonID
    WHERE ct.[Name] = 'Purchasing Manager'
 ORDER BY p.LastName, p.FirstName
 
@@ -249,11 +246,11 @@ ORDER BY p.LastName, p.FirstName
   SELECT ROW_NUMBER() OVER (PARTITION BY a.PostalCode ORDER BY sp.SalesYTD DESC) AS RowNumber,
          p.LastName,
          sp.SalesYTD,
-		 a.PostalCode
-    FROM Sales.SalesPerson sp
-	JOIN Person.Person p ON p.BusinessEntityID = sp.BusinessEntityID
-	JOIN Person.BusinessEntityAddress bea ON bea.BusinessEntityID = p.BusinessEntityID
-	JOIN Person.[Address] a ON a.AddressID = bea.AddressID
+		     a.PostalCode
+    FROM Sales.SalesPerson            sp
+	  JOIN Person.Person                p   ON p.BusinessEntityID = sp.BusinessEntityID
+	  JOIN Person.BusinessEntityAddress bea ON bea.BusinessEntityID = p.BusinessEntityID
+	  JOIN Person.[Address]             a   ON a.AddressID = bea.AddressID
    WHERE sp.TerritoryID IS NOT NULL
      AND sp.SalesYTD <> 0
 ORDER BY a.PostalCode ASC
@@ -264,9 +261,9 @@ ORDER BY a.PostalCode ASC
 
   SELECT ct.ContactTypeID,
          ct.[Name]                   AS ContactTypeName,
-		 COUNT(bec.BusinessEntityID) AS NumberContacts
-    FROM Person.ContactType ct
-	JOIN Person.BusinessEntityContact bec ON bec.ContactTypeID = ct.ContactTypeID
+		     COUNT(bec.BusinessEntityID) AS NumberContacts
+    FROM Person.ContactType           ct
+	  JOIN Person.BusinessEntityContact bec ON bec.ContactTypeID = ct.ContactTypeID
 GROUP BY ct.ContactTypeID, ct.[Name]
   HAVING COUNT(bec.BusinessEntityID) >= 100
 ORDER BY NumberContacts DESC
@@ -275,24 +272,22 @@ ORDER BY NumberContacts DESC
 -- 23
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- CONCAT trata NULL como texto vazio: quem não tem MiddleName continua no resultado
   SELECT CAST(eph.RateChangeDate AS DATE)                          AS FromDate,
          CONCAT(p.LastName, ', ', p.FirstName, ' ', p.MiddleName)  AS FullName,
-		 (eph.Rate * 40.0)                                         AS SalaryInWeek
-    FROM Person.Person p
-	JOIN HumanResources.EmployeePayHistory eph ON eph.BusinessEntityID = p.BusinessEntityID
+		     (eph.Rate * 40.0)                                         AS SalaryInWeek
+    FROM Person.Person                     p
+	  JOIN HumanResources.EmployeePayHistory eph ON eph.BusinessEntityID = p.BusinessEntityID
 ORDER BY FullName ASC
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 24
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- Salário semanal MAIS RECENTE de cada funcionário: apenas a linha com a última RateChangeDate
   SELECT CAST(eph.RateChangeDate AS DATE)                          AS FromDate,
          CONCAT(p.LastName, ', ', p.FirstName, ' ', p.MiddleName)  AS FullName,
-		 (eph.Rate * 40.0)                                         AS SalaryInWeek
-    FROM Person.Person p
-	JOIN HumanResources.EmployeePayHistory eph ON eph.BusinessEntityID = p.BusinessEntityID
+		     (eph.Rate * 40.0)                                         AS SalaryInWeek
+    FROM Person.Person                     p
+	  JOIN HumanResources.EmployeePayHistory eph ON eph.BusinessEntityID = p.BusinessEntityID
    WHERE eph.RateChangeDate = (SELECT MAX(eph2.RateChangeDate)
                                  FROM HumanResources.EmployeePayHistory eph2
                                 WHERE eph2.BusinessEntityID = eph.BusinessEntityID)
@@ -304,12 +299,12 @@ ORDER BY FullName ASC
 
   SELECT SalesOrderID,
          ProductID,
-		 OrderQty,
-		 SUM(OrderQty)                OVER (PARTITION BY SalesOrderID) AS "Total Quantity",
-		 AVG(CAST(OrderQty AS FLOAT)) OVER (PARTITION BY SalesOrderID) AS "Avg Quantity",
-		 COUNT(OrderQty)              OVER (PARTITION BY SalesOrderID) AS "No Of Quantity",
-		 MAX(OrderQty)                OVER (PARTITION BY SalesOrderID) AS "Max Quantity",
-		 MIN(OrderQty)                OVER (PARTITION BY SalesOrderID) AS "Min Quantity"
+		     OrderQty,
+		     SUM(OrderQty)                OVER (PARTITION BY SalesOrderID) AS "Total Quantity",
+		     AVG(CAST(OrderQty AS FLOAT)) OVER (PARTITION BY SalesOrderID) AS "Avg Quantity",
+		     COUNT(OrderQty)              OVER (PARTITION BY SalesOrderID) AS "No Of Quantity",
+		     MAX(OrderQty)                OVER (PARTITION BY SalesOrderID) AS "Max Quantity",
+		     MIN(OrderQty)                OVER (PARTITION BY SalesOrderID) AS "Min Quantity"
     FROM Sales.SalesOrderDetail
    WHERE SalesOrderID IN (43659, 43664)
 GROUP BY SalesOrderID, ProductID, OrderQty
@@ -320,12 +315,12 @@ GROUP BY SalesOrderID, ProductID, OrderQty
 
   SELECT SalesOrderID,
          ProductID,
-		 OrderQty,
-		 SUM(OrderQty)                OVER (PARTITION BY SalesOrderID) AS "Total Quantity",
-		 AVG(CAST(OrderQty AS FLOAT)) OVER (PARTITION BY SalesOrderID) AS "Avg Quantity",
-		 COUNT(OrderQty)              OVER (PARTITION BY SalesOrderID) AS "No Of Quantity",
-		 MAX(OrderQty)                OVER (PARTITION BY SalesOrderID) AS "Max Quantity",
-		 MIN(OrderQty)                OVER (PARTITION BY SalesOrderID) AS "Min Quantity"
+		     OrderQty,
+		     SUM(OrderQty)                OVER (PARTITION BY SalesOrderID) AS "Total Quantity",
+		     AVG(CAST(OrderQty AS FLOAT)) OVER (PARTITION BY SalesOrderID) AS "Avg Quantity",
+		     COUNT(OrderQty)              OVER (PARTITION BY SalesOrderID) AS "No Of Quantity",
+		     MAX(OrderQty)                OVER (PARTITION BY SalesOrderID) AS "Max Quantity",
+		     MIN(OrderQty)                OVER (PARTITION BY SalesOrderID) AS "Min Quantity"
     FROM Sales.SalesOrderDetail
    WHERE SalesOrderID IN (43659, 43664)
      AND ProductID LIKE '71%'
@@ -358,7 +353,7 @@ ORDER BY ProductID
 
   SELECT ProductID,
          [Name],
-		 Color
+		     Color
     FROM Production.[Product]
 ORDER BY ListPrice
 
@@ -368,7 +363,7 @@ ORDER BY ListPrice
 
   SELECT BusinessEntityID,
          JobTitle,
-		 CAST(HireDate AS DATE) AS HireDate
+		     CAST(HireDate AS DATE) AS HireDate
     FROM HumanResources.Employee
 ORDER BY YEAR(HireDate)
 
@@ -386,7 +381,6 @@ ORDER BY FirstName ASC, LastName DESC
 -- 32
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- Decrescente quando SalariedFlag = 1 e crescente quando SalariedFlag = 0
   SELECT BusinessEntityID,
          SalariedFlag
     FROM HumanResources.Employee
@@ -397,11 +391,10 @@ ORDER BY CASE WHEN SalariedFlag = 1 THEN BusinessEntityID END DESC,
 -- 33
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- Uma única chave de ordenação: TerritoryName para os Estados Unidos, CountryRegionName para os demais
   SELECT BusinessEntityID,
          LastName,
-		 TerritoryName,
-		 CountryRegionName
+		     TerritoryName,
+		     CountryRegionName
     FROM Sales.vSalesPerson
    WHERE TerritoryName IS NOT NULL
 ORDER BY CASE WHEN CountryRegionName = 'United States' THEN TerritoryName
@@ -414,16 +407,17 @@ ORDER BY CASE WHEN CountryRegionName = 'United States' THEN TerritoryName
 
   SELECT p.FirstName,
          p.LastName,
-		 ROW_NUMBER() OVER (ORDER BY a.PostalCode) AS "Row Number",
-		 RANK()       OVER (ORDER BY a.PostalCode) AS "Rank",
-		 DENSE_RANK() OVER (ORDER BY a.PostalCode) AS "Dense Rank",
-		 NTILE(4)     OVER (ORDER BY a.PostalCode) AS "Quartile",
-		 sp.SalesYTD,
-		 a.PostalCode
+		     ROW_NUMBER() OVER (ORDER BY a.PostalCode) AS "Row Number",
+		     RANK()       OVER (ORDER BY a.PostalCode) AS "Rank",
+		     DENSE_RANK() OVER (ORDER BY a.PostalCode) AS "Dense Rank",
+		     NTILE(4)     OVER (ORDER BY a.PostalCode) AS "Quartile",
+		     sp.SalesYTD,
+		     a.PostalCode
     FROM Person.Person     p
-	JOIN Sales.SalesPerson sp ON sp.BusinessEntityID = p.BusinessEntityID
-	JOIN Person.[Address]  a  ON a.AddressID = p.BusinessEntityID
-   WHERE TerritoryID IS NOT NULL AND SalesYTD <> 0
+	  JOIN Sales.SalesPerson sp ON sp.BusinessEntityID = p.BusinessEntityID
+	  JOIN Person.[Address]  a  ON a.AddressID = p.BusinessEntityID
+   WHERE TerritoryID IS NOT NULL 
+     AND SalesYTD <> 0
 ORDER BY a.PostalCode
 
 ------------------------------------------------------------------------------------------------------------------------------------------
@@ -432,7 +426,7 @@ ORDER BY a.PostalCode
 
   SELECT DepartmentID,
          [Name],
-		 GroupName
+		     GroupName
     FROM HumanResources.Department
 ORDER BY DepartmentID
   OFFSET 10 ROWS
@@ -443,7 +437,7 @@ ORDER BY DepartmentID
 
   SELECT DepartmentID,
          [Name],
-		 GroupName
+		     GroupName
     FROM HumanResources.Department
 ORDER BY DepartmentID
   OFFSET 5 ROWS FETCH NEXT 5 ROWS ONLY
@@ -454,7 +448,7 @@ ORDER BY DepartmentID
 
   SELECT [Name],
          Color,
-		 ListPrice
+		     ListPrice
     FROM Production.[Product]
    WHERE Color IN ('Red', 'Blue')
 ORDER BY ListPrice
@@ -464,7 +458,7 @@ ORDER BY ListPrice
 ------------------------------------------------------------------------------------------------------------------------------------------
 
          SELECT p.[Name],
-		        sod.SalesOrderID
+		            sod.SalesOrderID
            FROM Production.[Product]   p
 FULL OUTER JOIN Sales.SalesOrderDetail sod ON sod.ProductID = p.ProductID
        ORDER BY p.[Name]
@@ -474,7 +468,7 @@ FULL OUTER JOIN Sales.SalesOrderDetail sod ON sod.ProductID = p.ProductID
 ------------------------------------------------------------------------------------------------------------------------------------------
 
          SELECT p.[Name],
-		        sod.SalesOrderID
+		            sod.SalesOrderID
            FROM Production.[Product]   p
 LEFT OUTER JOIN Sales.SalesOrderDetail sod ON sod.ProductID = p.ProductID
        ORDER BY p.[Name]
@@ -493,7 +487,6 @@ ORDER BY p.[Name]
 -- 41
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- Todos os vendedores, com ou sem território: a tabela preservada é SalesPerson
          SELECT st.[Name],
                 sp.BusinessEntityID
            FROM Sales.SalesPerson    sp
@@ -504,13 +497,12 @@ LEFT OUTER JOIN Sales.SalesTerritory st ON st.TerritoryID = sp.TerritoryID
 -- 42
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- O JOIN com Employee restringe o resultado aos funcionários (sem ele, retorna todas as pessoas com endereço)
   SELECT p.FirstName + ' ' + p.LastName AS FullName,
          a.City
     FROM Person.Person                p
-	JOIN HumanResources.Employee      e   ON e.BusinessEntityID = p.BusinessEntityID
-	JOIN Person.BusinessEntityAddress bea ON bea.BusinessEntityID = p.BusinessEntityID
-	JOIN Person.[Address]             a   ON a.AddressID = bea.AddressID
+	  JOIN HumanResources.Employee      e   ON e.BusinessEntityID = p.BusinessEntityID
+	  JOIN Person.BusinessEntityAddress bea ON bea.BusinessEntityID = p.BusinessEntityID
+	  JOIN Person.[Address]             a   ON a.AddressID = bea.AddressID
 ORDER BY p.LastName, p.FirstName
 
 ------------------------------------------------------------------------------------------------------------------------------------------
@@ -519,11 +511,11 @@ ORDER BY p.LastName, p.FirstName
 
   SELECT x.BusinessEntityID,
          x.FirstName,
-	     x.LastName
+	       x.LastName
     FROM (SELECT BusinessEntityID,
                  PersonType,
                  FirstName,
-	             LastName
+	               LastName
             FROM Person.Person) x
    WHERE x.PersonType = 'IN'
      AND x.LastName = 'Adams'
@@ -535,7 +527,7 @@ ORDER BY x.FirstName
 
   SELECT x.BusinessEntityID,
          x.FirstName,
-  	   x.LastName
+  	     x.LastName
     FROM (SELECT *
             FROM Person.Person) x
    WHERE x.BusinessEntityID <= 1500
@@ -549,7 +541,7 @@ ORDER BY x.BusinessEntityID
 
   SELECT x.ProductID,
          x.[Name],
-		 x.Color
+		     x.Color
     FROM (SELECT *
             FROM Production.[Product]) x
    WHERE x.[Name] IN ('Blade', 'Crown Race', 'AWC Logo Cap')
@@ -562,14 +554,14 @@ ORDER BY x.ProductID
 ;WITH QuantityOfSalesCTE AS
 (
     SELECT SalesPersonID, 
-	       SalesOrderID, 
-		   YEAR(OrderDate) AS SalesYear
+	         SalesOrderID, 
+		       YEAR(OrderDate) AS SalesYear
       FROM Sales.SalesOrderHeader
      WHERE SalesPersonID IS NOT NULL
 )
   SELECT SalesPersonID, 
          COUNT(SalesOrderID) AS TotalSales, 
-		 SalesYear
+		     SalesYear
     FROM QuantityOfSalesCTE
 GROUP BY SalesYear, SalesPersonID
 ORDER BY SalesPersonID, SalesYear
@@ -593,7 +585,6 @@ SELECT AVG(CAST(NoOfOrders AS FLOAT)) AS "Average Sales Per Person"
 -- 48
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- No LIKE, "_" é curinga de um caractere. Para procurar o sublinhado literal é preciso escapá-lo
   SELECT *
     FROM Production.ProductPhoto
    WHERE LargePhotoFileName LIKE '%green\_%' ESCAPE '\'
@@ -605,11 +596,11 @@ ORDER BY ProductPhotoID
 
   SELECT a.AddressLine1,
          a.AddressLine2,
-		 a.City,
-		 a.PostalCode,
-		 sp.CountryRegionCode
+		     a.City,
+		     a.PostalCode,
+		     sp.CountryRegionCode
     FROM Person.[Address]     a
-	JOIN Person.StateProvince sp ON sp.StateProvinceID = a.StateProvinceID
+	  JOIN Person.StateProvince sp ON sp.StateProvinceID = a.StateProvinceID
    WHERE sp.CountryRegionCode <> 'US'
      AND a.City LIKE 'Pa%'
 ORDER BY a.AddressLine1
@@ -628,19 +619,19 @@ ORDER BY HireDate DESC
 -- 51
 ------------------------------------------------------------------------------------------------------------------------------------------
 
-  SELECT soh.*, sod.*
+  SELECT soh.*, 
+         sod.*
     FROM Sales.SalesOrderHeader soh
-	JOIN Sales.SalesOrderDetail sod ON sod.SalesOrderID = soh.SalesOrderID
+	  JOIN Sales.SalesOrderDetail sod ON sod.SalesOrderID = soh.SalesOrderID
    WHERE soh.TotalDue > 100
      AND (sod.OrderQty > 5
-          OR sod.UnitPriceDiscount < 1000)
+      OR sod.UnitPriceDiscount < 1000)
 ORDER BY soh.SalesOrderID
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 52
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- O enunciado pede a palavra 'red' apenas na coluna Name
   SELECT [Name],
          Color
     FROM Production.[Product]
@@ -684,7 +675,6 @@ ORDER BY ProductID
 -- 56
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- "Pelo menos uma palavra começando com chain": no início do nome ou depois de um espaço
   SELECT [Name],
          Color
     FROM Production.[Product]
@@ -696,7 +686,6 @@ ORDER BY ProductID
 -- 57
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- Palavra começando com chain ou full: no início do nome ou depois de um espaço
   SELECT [Name],
          Color
     FROM Production.[Product]
@@ -710,10 +699,9 @@ ORDER BY ProductID
 -- 58
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- Nome e sobrenome separados por espaço; o e-mail vem na linha seguinte
   SELECT CONCAT(p.FirstName, ' ', p.LastName, CHAR(13), CHAR(10), ea.EmailAddress) AS PersonEmailAddress
     FROM Person.Person       p
-	JOIN Person.EmailAddress ea ON ea.BusinessEntityID = p.BusinessEntityID
+  	JOIN Person.EmailAddress ea ON ea.BusinessEntityID = p.BusinessEntityID
 ORDER BY p.BusinessEntityID
 
 ------------------------------------------------------------------------------------------------------------------------------------------
@@ -767,9 +755,9 @@ ORDER BY [Length], FirstName
 
   SELECT LEN(swc.FirstName) AS FNameLength,
          swc.FirstName,
-		 swc.LastName
+		     swc.LastName
     FROM Sales.vStoreWithContacts  swc
-	JOIN Sales.vStoreWithAddresses swa ON swa.BusinessEntityID = swc.BusinessEntityID
+	  JOIN Sales.vStoreWithAddresses swa ON swa.BusinessEntityID = swc.BusinessEntityID
    WHERE swa.CountryRegionName = 'Australia'
 ORDER BY FNameLength, swc.FirstName
 
@@ -824,21 +812,20 @@ SELECT DISTINCT
 
 SELECT [Name],
        ProductNumber,
-	   RIGHT([Name], 8) AS ProductName
+	     RIGHT([Name], 8) AS ProductName
   FROM Production.[Product]
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 71
 ------------------------------------------------------------------------------------------------------------------------------------------
 
-SELECT CONCAT('text then five spaces     ','after space') as OriginalText
-SELECT CONCAT(RTRIM('text then five spaces     '),'after space') as TrimmedText
+SELECT CONCAT('text then five spaces     ','after space')        AS OriginalText
+SELECT CONCAT(RTRIM('text then five spaces     '),'after space') AS TrimmedText
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 72
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- Qualquer nome terminado em S, M ou L, e não apenas os terminados em ", S", ", M" ou ", L"
 SELECT ProductNumber,
        [Name]
   FROM Production.[Product]
@@ -885,8 +872,8 @@ SELECT JobTitle,
 
 SELECT p.FirstName,
        p.MiddleName,
-	   p.LastName,
-	   e.JobTitle
+	     p.LastName,
+	     e.JobTitle
   FROM Person.Person           p
   JOIN HumanResources.Employee e ON e.BusinessEntityID = p.BusinessEntityID
  WHERE e.JobTitle LIKE 'Sales%'
@@ -902,11 +889,10 @@ SELECT CONCAT(UPPER(LastName), ', ', FirstName) AS [Name]
 -- 79
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- "Expressão pequena demais para exibir": SickLeaveHours convertido para CHAR(1) mostra '*' quando o valor tem mais de um dígito
 SELECT p.FirstName,
        p.LastName,
-	   ISNULL(p.Title, 'N/A')            AS Title,
-	   CAST(e.SickLeaveHours AS CHAR(1)) AS SickLeaveHours
+	     ISNULL(p.Title, 'N/A')            AS Title,
+	     CAST(e.SickLeaveHours AS CHAR(1)) AS SickLeaveHours
   FROM Person.Person           p
   JOIN HumanResources.Employee e ON e.BusinessEntityID = p.BusinessEntityID
 
@@ -923,10 +909,9 @@ SELECT [Name],
 -- 81
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- ROUND explícito: o enunciado pede o valor arredondado para o inteiro mais próximo
 SELECT SalesYTD,
        CommissionPct,
-	   CAST(ROUND(SalesYTD / CommissionPct, 0) AS INT) AS Computed
+	     CAST(ROUND(SalesYTD / CommissionPct, 0) AS INT) AS Computed
   FROM Sales.SalesPerson
  WHERE CommissionPct IS NOT NULL
    AND CommissionPct <> 0
@@ -935,11 +920,10 @@ SELECT SalesYTD,
 -- 82
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- Conversão explícita pedida no enunciado: SalesYTD para INT e depois para CHAR(20)
 SELECT p.FirstName,
        p.LastName,
-	   sp.SalesYTD,
-	   p.BusinessEntityID
+	     sp.SalesYTD,
+	     p.BusinessEntityID
   FROM Person.Person     p
   JOIN Sales.SalesPerson sp ON sp.BusinessEntityID = p.BusinessEntityID
  WHERE CAST(CAST(sp.SalesYTD AS INT) AS CHAR(20)) LIKE '2%'
@@ -959,8 +943,8 @@ SELECT CAST([Name] AS CHAR(16)) AS [Name],
 
 SELECT ProductID,
        UnitPrice,
-	   UnitPriceDiscount,
-	   CAST((UnitPrice * UnitPriceDiscount) AS INT) AS DiscountPrice
+	     UnitPriceDiscount,
+	     CAST((UnitPrice * UnitPriceDiscount) AS INT) AS DiscountPrice
   FROM Sales.SalesOrderDetail
  WHERE SalesOrderID = 46672
    AND UnitPriceDiscount > 0.02
@@ -989,7 +973,6 @@ GROUP BY TerritoryID
 -- 87
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- O enunciado pede a média considerando apenas valores únicos
 SELECT AVG(DISTINCT ListPrice) AS ListPrice
   FROM Production.[Product]
 
@@ -999,10 +982,10 @@ SELECT AVG(DISTINCT ListPrice) AS ListPrice
 
 SELECT BusinessEntityID,
        TerritoryID,
-	   YEAR(ModifiedDate) AS SalesYear,
-	   SalesYTD,
-	   AVG(SalesYTD) OVER(PARTITION BY TerritoryID ORDER BY YEAR(ModifiedDate)) AS MovingAvg,
-	   SUM(SalesYTD) OVER(PARTITION BY TerritoryID ORDER BY YEAR(ModifiedDate)) AS CumulativeTotal
+	     YEAR(ModifiedDate)                                                       AS SalesYear,
+	     SalesYTD,
+	     AVG(SalesYTD) OVER(PARTITION BY TerritoryID ORDER BY YEAR(ModifiedDate)) AS MovingAvg,
+	     SUM(SalesYTD) OVER(PARTITION BY TerritoryID ORDER BY YEAR(ModifiedDate)) AS CumulativeTotal
   FROM Sales.SalesPerson
 
 ------------------------------------------------------------------------------------------------------------------------------------------
@@ -1011,7 +994,7 @@ SELECT BusinessEntityID,
 
   SELECT BusinessEntityID,
          TerritoryID,
-  	     YEAR(ModifiedDate) AS SalesYear,
+  	     YEAR(ModifiedDate)                              AS SalesYear,
   	     SalesYTD,
   	     AVG(SalesYTD) OVER(ORDER BY YEAR(ModifiedDate)) AS MovingAvg,
   	     SUM(SalesYTD) OVER(ORDER BY YEAR(ModifiedDate)) AS CumulativeTotal
@@ -1048,12 +1031,12 @@ SELECT COUNT(DISTINCT BusinessEntityID) AS [Count],
   SELECT DISTINCT
          d.[Name],
          MIN(eph.Rate) OVER(PARTITION BY edh.DepartmentID)               AS MinSalary,
-		 MAX(eph.Rate) OVER(PARTITION BY edh.DepartmentID)               AS MaxSalary,
-		 AVG(eph.Rate) OVER(PARTITION BY edh.DepartmentID)               AS AvgSalary,
-		 COUNT(edh.BusinessEntityID) OVER(PARTITION BY edh.DepartmentID) AS EmployeesPerDept
+		     MAX(eph.Rate) OVER(PARTITION BY edh.DepartmentID)               AS MaxSalary,
+		     AVG(eph.Rate) OVER(PARTITION BY edh.DepartmentID)               AS AvgSalary,
+		     COUNT(edh.BusinessEntityID) OVER(PARTITION BY edh.DepartmentID) AS EmployeesPerDept
     FROM HumanResources.Department                d
-	JOIN HumanResources.EmployeeDepartmentHistory edh ON edh.DepartmentID = d.DepartmentID
-	JOIN HumanResources.EmployeePayHistory        eph ON eph.BusinessEntityID = edh.BusinessEntityID
+	  JOIN HumanResources.EmployeeDepartmentHistory edh ON edh.DepartmentID = d.DepartmentID
+	  JOIN HumanResources.EmployeePayHistory        eph ON eph.BusinessEntityID = edh.BusinessEntityID
    WHERE edh.EndDate IS NULL
 ORDER BY d.[Name]
 
@@ -1071,7 +1054,6 @@ GROUP BY JobTitle
 -- 95
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- Produtos DIFERENTES em cada pedido
   SELECT COUNT(DISTINCT ProductID) AS ProductCount,
          SalesOrderID
     FROM Sales.SalesOrderDetail
@@ -1082,10 +1064,10 @@ GROUP BY SalesOrderID
 -- 96
 ------------------------------------------------------------------------------------------------------------------------------------------
 
-  SELECT QuotaDate AS [Year],
-         DATEPART(QUARTER, QuotaDate) AS [Quarter],
-		 SalesQuota,
-		 VAR(SalesQuota) OVER(ORDER BY YEAR(QuotaDate), DATEPART(QUARTER, QuotaDate)) AS Variance
+  SELECT QuotaDate                                                                    AS [Year],
+         DATEPART(QUARTER, QuotaDate)                                                 AS [Quarter],
+		     SalesQuota,
+		     VAR(SalesQuota) OVER(ORDER BY YEAR(QuotaDate), DATEPART(QUARTER, QuotaDate)) AS Variance
     FROM Sales.SalesPersonQuotaHistory
    WHERE YEAR(QuotaDate) = 2012
      AND BusinessEntityID = 277
@@ -1105,7 +1087,7 @@ ORDER BY DATEPART(QUARTER, QuotaDate)
 
   SELECT Color,
          SUM(ListPrice)    AS SumListPrice,
-		 SUM(StandardCost) AS SumStandardCost
+		     SUM(StandardCost) AS SumStandardCost
     FROM Production.[Product]
    WHERE [Name] LIKE 'Mountain%'
      AND ListPrice > 0
@@ -1118,8 +1100,8 @@ ORDER BY Color
 ------------------------------------------------------------------------------------------------------------------------------------------
 
   SELECT SalesQuota,
-         SUM(SalesYTD) AS TotalSalesYTD,
-		 GROUPING(SalesQuota) AS [Grouping]
+         SUM(SalesYTD)        AS TotalSalesYTD,
+		     GROUPING(SalesQuota) AS [Grouping]
     FROM Sales.SalesPerson
 GROUP BY ROLLUP(SalesQuota)
 ORDER BY [Grouping] DESC
@@ -1130,6 +1112,6 @@ ORDER BY [Grouping] DESC
 
   SELECT Color,
          SUM(ListPrice)    AS TotalList,
-		 SUM(StandardCost) AS TotalCost
+		     SUM(StandardCost) AS TotalCost
     FROM Production.[Product]
 GROUP BY Color
