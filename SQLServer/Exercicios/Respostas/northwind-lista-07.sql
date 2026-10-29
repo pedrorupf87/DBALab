@@ -1,5 +1,5 @@
 ﻿
-USE NORTHWIND
+USE Northwind
 GO
 
 ------------------------------------------------------------------------------------------------------------------------------------------
@@ -18,7 +18,6 @@ CREATE TABLE #TEMP_01
 	[Date]     DATETIME
 )
 
--- O filtro é pelo valor total do PEDIDO (itens de Order Details) acima de 500, e não pelo valor do frete
 DECLARE UpdateFreightCursor CURSOR FOR
   SELECT o.OrderID,
          o.Freight
@@ -60,12 +59,11 @@ CREATE TABLE #TEMP_02
 	TotalSpent VARCHAR(20)
 )
 
--- COUNT(DISTINCT): depois do JOIN com Order Details há uma linha por item, não por pedido
 DECLARE CustomerCursor CURSOR FOR
   SELECT o.CustomerID,
          COUNT(DISTINCT o.OrderID),
 		 SUM(od.UnitPrice * od.Quantity * (1 - od.Discount))
-    FROM Orders o
+    FROM Orders          o
     JOIN [Order Details] od ON o.OrderID = od.OrderID
    WHERE YEAR(o.OrderDate) = 1998
 GROUP BY o.CustomerID
@@ -105,11 +103,11 @@ CREATE TABLE #TEMP_03
 )
 
 DECLARE UpdatePriceCursor CURSOR FOR
-SELECT ProductName,
-       UnitPrice                        AS OriginalValue,
-       ROUND(UnitPrice * (1 - 0.05), 2) AS ReducedValue
-  FROM Products
- WHERE UnitsInStock > 100
+ SELECT ProductName,
+        UnitPrice                        AS OriginalValue,
+        ROUND(UnitPrice * (1 - 0.05), 2) AS ReducedValue
+   FROM Products
+  WHERE UnitsInStock > 100
 
 OPEN UpdatePriceCursor
 FETCH NEXT FROM UpdatePriceCursor INTO @ProductName03, @OriginalValue03, @ReducedValue03
@@ -127,7 +125,6 @@ BEGIN
 		PRINT 'Erro ao atualizar o produto ' + @ProductName03 + ': ' + ERROR_MESSAGE()
 	END CATCH
 
-	-- O FETCH fica fora do TRY: se ficasse dentro, um erro pularia a leitura da próxima linha e o loop não terminaria
 	FETCH NEXT FROM UpdatePriceCursor INTO @ProductName03, @OriginalValue03, @ReducedValue03
 END
 
@@ -173,7 +170,6 @@ BEGIN
 		PRINT 'Erro no pedido ' + CAST(@OrderId04 AS VARCHAR) + ': ' + ERROR_MESSAGE()
 	END CATCH
 
-	-- FETCH fora do TRY, para o loop avançar mesmo quando há erro
 	FETCH NEXT FROM TotalItensCursor INTO @OrderId04, @TotalItens04
 END
 
@@ -197,9 +193,9 @@ CREATE TABLE #TEMP_05
     Quantity   INT
 )
 
--- Total de pedidos por funcionário no trimestre: o agrupamento é só por EmployeeID
 DROP TABLE IF EXISTS #TEMP_CTE
-;WITH QuantityCTE AS (
+;WITH QuantityCTE AS
+(
   SELECT EmployeeID,
          COUNT(*) AS Quantity
     FROM Orders
@@ -232,7 +228,6 @@ END
 CLOSE TotalSalesCursor
 DEALLOCATE TotalSalesCursor
 
--- Ordenado por desempenho
 SELECT * FROM #TEMP_05 ORDER BY Quantity DESC
 DROP TABLE #TEMP_CTE
 DROP TABLE #TEMP_05
@@ -255,9 +250,9 @@ CREATE TABLE #TEMP_06
 )
 
 DECLARE Cursor06 CURSOR FOR
-SELECT SupplierID,
-       Phone
-  FROM Suppliers
+ SELECT SupplierID,
+        Phone
+   FROM Suppliers
 
 OPEN Cursor06
 FETCH NEXT FROM Cursor06 INTO @SupplierId06, @Phone06
@@ -265,14 +260,14 @@ FETCH NEXT FROM Cursor06 INTO @SupplierId06, @Phone06
 WHILE @@FETCH_STATUS = 0
 BEGIN
 	BEGIN TRY
-		-- Mantém só os dígitos: remove espaços, parênteses, hífens e pontos
+		-- Remove os caracteres nao alfanumericos, mantendo apenas os numericos
 		SET @Digits06 = REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(@Phone06, ' ', ''), '(', ''), ')', ''), '-', ''), '.', '')
 
-		-- Telefone inválido: nulo, com caractere que não é dígito ou com menos de 8 dígitos
+		-- Lanca erro se o telefone e invalido, nulo, com caractere que não e digito, ou com menos de 8 digitos
 		IF (@Digits06 IS NULL OR @Digits06 LIKE '%[^0-9]%' OR LEN(@Digits06) < 8)
 			THROW 50001, 'Telefone inválido para o formato padronizado', 1
 
-		-- Formato padronizado +XX-XXXX-XXXX: os 4 últimos dígitos formam o último bloco
+		-- Os 04 ultimos digitos formam o ultimo bloco
 		SET @NewPhone06 = '+55-' + LEFT(@Digits06, LEN(@Digits06) - 4) + '-' + RIGHT(@Digits06, 4)
 
 		INSERT INTO #TEMP_06
@@ -309,11 +304,11 @@ CREATE TABLE #TEMP_07
 )
 
 DECLARE Cursor07 CURSOR FOR
-SELECT OrderID,
-       ProductID,
-	   UnitPrice
-  FROM [Order Details]
- WHERE Quantity > 10
+ SELECT OrderID,
+        ProductID,
+        UnitPrice
+   FROM [Order Details]
+  WHERE Quantity > 10
 
 OPEN Cursor07
 FETCH NEXT FROM Cursor07 INTO @OrderId07, @ProductId07, @UnitPrice07
@@ -336,7 +331,8 @@ DROP TABLE #TEMP_07
 -- 08
 ------------------------------------------------------------------------------------------------------------------------------------------
 
-DECLARE @OrderId08 INT
+DECLARE @OrderId08 INT,
+        @RefDate08 DATETIME
 
 DROP TABLE IF EXISTS #TEMP_08
 CREATE TABLE #TEMP_08
@@ -348,12 +344,14 @@ CREATE TABLE #TEMP_08
 	[Status]    VARCHAR(20) DEFAULT 'Ativo'
 )
 
--- Só entram pedidos AINDA não enviados e feitos há mais de 30 dias. Pedido já enviado não é cancelado
-DECLARE Cursor08 CURSOR FOR
-SELECT OrderID
+SELECT @RefDate08 = MAX(OrderDate)
   FROM Orders
- WHERE ShippedDate IS NULL
-   AND OrderDate < DATEADD(DAY, -30, GETDATE())
+
+DECLARE Cursor08 CURSOR FOR
+ SELECT OrderID
+   FROM Orders
+  WHERE ShippedDate IS NULL
+    AND OrderDate < DATEADD(DAY, -30, @RefDate08)
 
 OPEN Cursor08
 FETCH NEXT FROM Cursor08 INTO @OrderId08
@@ -377,7 +375,6 @@ BEGIN
 		PRINT 'Erro ao inserir o OrderId ' + CAST(@OrderId08 AS VARCHAR) + ': ' + ERROR_MESSAGE()
 	END CATCH
 
-	-- FETCH fora do TRY, para o loop avançar mesmo quando há erro
 	FETCH NEXT FROM Cursor08 INTO @OrderId08
 END
 
@@ -403,9 +400,9 @@ CREATE TABLE #TEMP_09
 )
 
 DECLARE Cursor09 CURSOR FOR
-SELECT ProductID 
-  FROM Products 
- WHERE Discontinued = 1
+ SELECT ProductID 
+   FROM Products 
+  WHERE Discontinued = 1
 
 OPEN Cursor09
 FETCH NEXT FROM Cursor09 INTO @ProductId09
@@ -435,7 +432,8 @@ DROP TABLE #TEMP_09
 ------------------------------------------------------------------------------------------------------------------------------------------
 
 DECLARE @CustomerId10 VARCHAR(5),
-        @OrderDate10  DATETIME
+        @OrderDate10  DATETIME,
+        @RefDate10    DATETIME
 
 DROP TABLE IF EXISTS #TEMP_10
 CREATE TABLE #TEMP_10
@@ -445,13 +443,16 @@ CREATE TABLE #TEMP_10
 	EmailDate  DATETIME
 )
 
+SELECT @RefDate10 = MAX(OrderDate)
+  FROM Orders
+
 DECLARE Cursor10 CURSOR FOR
    SELECT c.CustomerID, 
           MAX(o.OrderDate)
      FROM Customers c
 LEFT JOIN Orders    o ON c.CustomerID = o.CustomerID
  GROUP BY c.CustomerID
-   HAVING MAX(o.OrderDate) < DATEADD(MONTH, -6, GETDATE()) OR MAX(o.OrderDate) IS NULL
+   HAVING MAX(o.OrderDate) < DATEADD(MONTH, -6, @RefDate10) OR MAX(o.OrderDate) IS NULL
 
 OPEN Cursor10
 FETCH NEXT FROM Cursor10 INTO @CustomerId10, @OrderDate10
@@ -467,7 +468,10 @@ END
 CLOSE Cursor10
 DEALLOCATE Cursor10
 
-SELECT * FROM #TEMP_10
+SELECT CustomerId,
+       CAST(OrderDate AS DATE) AS OrderDate,
+	   CAST(EmailDate AS DATE) AS EmailDate
+  FROM #TEMP_10
 DROP TABLE #TEMP_10
 
 ------------------------------------------------------------------------------------------------------------------------------------------
@@ -515,30 +519,49 @@ DROP TABLE #TEMP_11
 DECLARE @EmployeeId12 INT, 
         @ReportsTo12  INT, 
 		@FirstName12  VARCHAR(10), 
-		@LastName12   VARCHAR(20)
+		@LastName12   VARCHAR(20),
+		@Level12      INT,
+		@Path12       NVARCHAR(200),
+		@Manager12    INT
 
 DROP TABLE IF EXISTS #TEMP_12
 CREATE TABLE #TEMP_12 
 (
-    EmployeeID INT,
-    ManagerID INT,
-    EmployeeName NVARCHAR(50)
+    EmployeeID   INT,
+    ManagerID    INT,
+    EmployeeName NVARCHAR(50),
+    [Level]      INT,
+    [Path]       NVARCHAR(200)
 )
 
 DECLARE Cursor12 CURSOR FOR
-SELECT EmployeeID, 
-       ReportsTo, 
-	   FirstName, 
-	   LastName
-  FROM Employees
+ SELECT EmployeeID, 
+        ReportsTo, 
+        FirstName, 
+        LastName
+   FROM Employees
 
 OPEN Cursor12
 FETCH NEXT FROM Cursor12 INTO @EmployeeId12, @ReportsTo12, @FirstName12, @LastName12
 
 WHILE @@FETCH_STATUS = 0
 BEGIN
-    INSERT INTO #TEMP_12 (EmployeeID, ManagerID, EmployeeName)
-    VALUES (@EmployeeId12, @ReportsTo12, @FirstName12 + ' ' + @LastName12)
+    SET @Level12   = 1
+    SET @Path12    = @LastName12
+    SET @Manager12 = @ReportsTo12
+
+    WHILE @Manager12 IS NOT NULL
+    BEGIN
+        SELECT @Path12 = LastName + ' > ' + @Path12
+          FROM Employees
+         WHERE EmployeeID = @Manager12
+
+        SET @Manager12 = (SELECT ReportsTo FROM Employees WHERE EmployeeID = @Manager12)
+        SET @Level12   = @Level12 + 1
+    END
+
+    INSERT INTO #TEMP_12 (EmployeeID, ManagerID, EmployeeName, [Level], [Path])
+    VALUES (@EmployeeId12, @ReportsTo12, @FirstName12 + ' ' + @LastName12, @Level12, @Path12)
 
     FETCH NEXT FROM Cursor12 INTO @EmployeeId12, @ReportsTo12, @FirstName12, @LastName12
 END
@@ -546,7 +569,7 @@ END
 CLOSE Cursor12
 DEALLOCATE Cursor12
 
-SELECT * FROM #TEMP_12
+SELECT * FROM #TEMP_12 ORDER BY [Path]
 DROP TABLE #TEMP_12
 
 ------------------------------------------------------------------------------------------------------------------------------------------
@@ -567,19 +590,18 @@ CREATE TABLE #TEMP_13
 	AvgUnitPrice DECIMAL(10,2)
 )
 
--- A média exibida é a mesma usada no filtro: preço médio da categoria, calculado em Products
-DECLARE Cursor13 CURSOR FOR
-SELECT od.OrderID,
-       od.ProductID,
-	   od.UnitPrice,
-       ca.AvgPrice
-  FROM [Order Details] od
-  JOIN Products        p  ON od.ProductID = p.ProductID
-  JOIN (   SELECT CategoryID,
-                  AVG(UnitPrice) AS AvgPrice
-             FROM Products
-         GROUP BY CategoryID ) ca ON ca.CategoryID = p.CategoryID
- WHERE od.UnitPrice > ca.AvgPrice
+ DECLARE Cursor13 CURSOR FOR
+ SELECT od.OrderID,
+        od.ProductID,
+        od.UnitPrice,
+        ca.AvgPrice
+   FROM [Order Details] od
+   JOIN Products        p  ON od.ProductID = p.ProductID
+   JOIN (   SELECT CategoryID,
+                   AVG(UnitPrice) AS AvgPrice
+              FROM Products
+          GROUP BY CategoryID ) ca ON ca.CategoryID = p.CategoryID
+  WHERE od.UnitPrice > ca.AvgPrice
 
 OPEN Cursor13
 FETCH NEXT FROM Cursor13 INTO @OrderId13, @ProductId13, @UnitPrice13, @AvgUnitPrice13
@@ -652,7 +674,7 @@ DECLARE @ProductId15 INT
 DROP TABLE IF EXISTS #TEMP_15
 CREATE TABLE #TEMP_15
 (
-	ProductId INT,
+	ProductId    INT,
 	OldUnitStock SMALLINT,
 	NewUnitStock SMALLINT
 )
@@ -667,7 +689,6 @@ FETCH NEXT FROM Cursor15 INTO @ProductId15
 
 WHILE @@FETCH_STATUS = 0
 BEGIN
-	-- CEILING: sem arredondar para cima, a conversão para SMALLINT trunca e estoques pequenos não aumentam (4 * 1.2 = 4.8 viraria 4)
 	INSERT INTO #TEMP_15
 	SELECT ProductID,
 	       UnitsInStock,
@@ -702,11 +723,10 @@ CREATE TABLE #TEMP_16
 	Ranking    TINYINT
 )
 
--- TOP só garante "os 10 maiores" quando a consulta tem ORDER BY
 DECLARE Cursor16 CURSOR FOR
   SELECT TOP 10
          CustomerID,
-         COUNT(OrderID) AS Quantity,
+         COUNT(OrderID)                                   AS Quantity,
   	     ROW_NUMBER() OVER (ORDER BY COUNT(OrderID) DESC) AS Ranking
     FROM Orders
 GROUP BY CustomerID
@@ -835,15 +855,15 @@ CREATE TABLE #TEMP_19
 )
 
 DECLARE Cursor19 CURSOR FOR
-SELECT o.OrderID,
-       o.CustomerID,
-	   od.ProductID,
-       od.UnitPrice                    AS OldUnitPrice,
-	   ROUND((od.UnitPrice * 1.05), 2) AS NewUnitPrice
-  FROM [Order Details] od
-  JOIN Orders          o  ON o.OrderID = od.OrderID
- WHERE DAY(o.OrderDate) = 25
-   AND MONTH(o.OrderDate) = 12
+ SELECT o.OrderID,
+        o.CustomerID,
+        od.ProductID,
+        od.UnitPrice                    AS OldUnitPrice,
+ 	    ROUND((od.UnitPrice * 1.05), 2) AS NewUnitPrice
+   FROM [Order Details] od
+   JOIN Orders          o  ON o.OrderID = od.OrderID
+  WHERE DAY(o.OrderDate) = 25
+    AND MONTH(o.OrderDate) = 12
 
 OPEN Cursor19
 FETCH NEXT FROM Cursor19 INTO @OrderId19, @CustomerId19, @ProductId19, @OldUnitPrice19, @NewUnitPrice19
@@ -876,12 +896,12 @@ CREATE TABLE #TEMP_20
 	TotalYears SMALLINT
 )
 
--- DATEDIFF(YEAR) conta viradas de ano; o CASE desconta 1 quando o aniversário de contratação ainda não chegou neste ano
+-- Aqui eu usei DATEDIFF(YEAR) porque conta viradas de ano, e o CASE desconta 1 quando o aniversario de contratação ainda nao chegou neste ano
 DECLARE Cursor20 CURSOR FOR
-SELECT EmployeeID,
-       DATEDIFF(YEAR, HireDate, GETDATE())
-	       - CASE WHEN DATEADD(YEAR, DATEDIFF(YEAR, HireDate, GETDATE()), HireDate) > GETDATE() THEN 1 ELSE 0 END
-  FROM Employees
+ SELECT EmployeeID,
+        DATEDIFF(YEAR, HireDate, GETDATE()) 
+ 	       - CASE WHEN DATEADD(YEAR, DATEDIFF(YEAR, HireDate, GETDATE()), HireDate) > GETDATE() THEN 1 ELSE 0 END
+   FROM Employees
 
 OPEN Cursor20
 FETCH NEXT FROM Cursor20 INTO @EmployeeId20, @TotalYears20
@@ -908,7 +928,7 @@ DROP TABLE #TEMP_20
 (
 	  SELECT c.CategoryName,
 	         SUM(od.Quantity * od.UnitPrice) AS Total,
-	  	     YEAR(o.OrderDate) AS [Year]
+	  	     YEAR(o.OrderDate)               AS [Year]
 	    FROM Orders          o
 	    JOIN [Order Details] od ON od.OrderID = o.OrderID
 	    JOIN Products        p  ON p.ProductID = od.ProductID
@@ -925,22 +945,23 @@ ORDER BY Total DESC
 -- 22
 ------------------------------------------------------------------------------------------------------------------------------------------
 
-;WITH CTE22 AS (
-    SELECT EmployeeID,
-           FirstName + ' ' + LastName AS EmployeeName,
-           ReportsTo,
-           1                          AS [Level]
-      FROM Employees
-     WHERE ReportsTo IS NULL
+;WITH CTE22 AS
+(
+       SELECT EmployeeID,
+              FirstName + ' ' + LastName AS EmployeeName,
+              ReportsTo,
+              1                          AS [Level]
+         FROM Employees
+        WHERE ReportsTo IS NULL
 
     UNION ALL
 
-    SELECT e.EmployeeID,
-           e.FirstName + ' ' + e.LastName,
-           e.ReportsTo,
-           eh.[Level] + 1
-      FROM Employees e
-      JOIN CTE22     eh ON e.ReportsTo = eh.EmployeeID
+       SELECT e.EmployeeID,
+              e.FirstName + ' ' + e.LastName,
+              e.ReportsTo,
+              eh.[Level] + 1
+         FROM Employees e
+         JOIN CTE22     eh ON e.ReportsTo = eh.EmployeeID
 )
   SELECT EmployeeID,
          EmployeeName,
@@ -953,9 +974,6 @@ ORDER BY [Level], EmployeeID
 -- 23
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- Primeiro o total de cada pedido; depois a média e a contagem por cliente.
--- (AVG direto sobre Order Details daria a média por item, não por pedido)
-
 ;WITH OrderTotalCTE23 AS
 (
 	  SELECT o.CustomerID,
@@ -964,8 +982,8 @@ ORDER BY [Level], EmployeeID
 	    FROM Orders          o
 	    JOIN [Order Details] od ON o.OrderID = od.OrderID
 	GROUP BY o.CustomerID, o.OrderID
-),
-CTE23 AS
+)
+,CTE23 AS
 (
 	  SELECT CustomerID,
 	         COUNT(*)        AS TotalOrders,
@@ -1013,8 +1031,8 @@ ORDER BY TotalItens DESC
         JOIN [Order Details] od ON o.OrderID = od.OrderID
        WHERE YEAR(o.OrderDate) = 1998
     GROUP BY YEAR(o.OrderDate), MONTH(o.OrderDate)
-),
-SalesGrowthCTE AS
+)
+,SalesGrowthCTE AS
 (
     SELECT [Year],
            [Month],
@@ -1026,9 +1044,9 @@ SalesGrowthCTE AS
 )
   SELECT [Year],
          [Month],
-         TotalSales,
-         PreviousMonthSales,
-         ROUND(GrowthPercent, 2) AS GrowthPercent
+         CAST(TotalSales AS DECIMAL(10,2))         AS TotalSales,
+         CAST(PreviousMonthSales AS DECIMAL(10,2)) AS PreviousMonthSales,
+         ROUND(GrowthPercent, 2)                   AS GrowthPercent
     FROM SalesGrowthCTE
 ORDER BY [Year], [Month]
 
@@ -1057,8 +1075,6 @@ SELECT ShipRegion,
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 27
 ------------------------------------------------------------------------------------------------------------------------------------------
-
--- O frete é subtraído uma única vez por pedido (SUM(o.Freight) depois do JOIN multiplicaria o frete pelo número de itens)
 
 ;WITH CTE27 AS
 (
@@ -1098,36 +1114,34 @@ SELECT c.CustomerID,
 -- 29
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- Os dias com venda são numerados (RowNum) e a recursão avança de um dia com venda para o seguinte.
--- Avançar pelo dia do calendário (DATEADD) interromperia o acumulado no primeiro dia sem pedido
-
-;WITH DailySalesCTE AS (
-      SELECT CAST(OrderDate AS DATE)                               AS SaleDate,
-             SUM(UnitPrice * Quantity * (1 - Discount))            AS DailyTotal,
-             ROW_NUMBER() OVER (ORDER BY CAST(OrderDate AS DATE))  AS RowNum
+;WITH DailySalesCTE AS
+(
+      SELECT CAST(OrderDate AS DATE)                              AS SaleDate,
+             SUM(UnitPrice * Quantity * (1 - Discount))           AS DailyTotal,
+             ROW_NUMBER() OVER (ORDER BY CAST(OrderDate AS DATE)) AS RowNum
         FROM Orders          o
         JOIN [Order Details] od ON o.OrderID = od.OrderID
        WHERE MONTH(o.OrderDate) = 1
 	     AND YEAR(o.OrderDate) = 1998
     GROUP BY CAST(OrderDate AS DATE)
-),
-CumulativeSalesCTE AS
+)
+,CumulativeSalesCTE AS
 (
-    SELECT SaleDate,
-           DailyTotal,
-           DailyTotal AS RunningTotal,
-           RowNum
-      FROM DailySalesCTE
-     WHERE RowNum = 1
+       SELECT SaleDate,
+              DailyTotal,
+              DailyTotal AS RunningTotal,
+              RowNum
+         FROM DailySalesCTE
+        WHERE RowNum = 1
 
 	UNION ALL
 
-	SELECT ds.SaleDate,
-           ds.DailyTotal,
-           cs.RunningTotal + ds.DailyTotal,
-           ds.RowNum
-      FROM DailySalesCTE ds
-      JOIN CumulativeSalesCTE cs ON ds.RowNum = cs.RowNum + 1
+	   SELECT ds.SaleDate,
+              ds.DailyTotal,
+              cs.RunningTotal + ds.DailyTotal,
+              ds.RowNum
+         FROM DailySalesCTE      ds
+         JOIN CumulativeSalesCTE cs ON ds.RowNum = cs.RowNum + 1
 )
   SELECT SaleDate,
          CAST(DailyTotal   AS DECIMAL(10,2)) AS DailyTotal,
@@ -1144,7 +1158,7 @@ ORDER BY SaleDate
 	  SELECT s.SupplierID, 
 	         s.CompanyName, 
 			 COUNT(p.ProductID) AS Quantity
-	    FROM Products p
+	    FROM Products  p
 	    JOIN Suppliers s ON s.SupplierID = p.SupplierID
 	   WHERE p.UnitsInStock < 10
 	GROUP BY s.SupplierID, s.CompanyName
@@ -1218,7 +1232,6 @@ ORDER BY PriceVariation DESC
 )
 , CTE33_GERAL AS
 (
-	-- CAST para FLOAT: AVG de um inteiro devolve inteiro e descartaria a parte decimal da média
 	SELECT AVG(CAST(OrderByEmployee AS FLOAT)) AS AvgOrderEmployee
 	  FROM CTE33
 )
@@ -1234,18 +1247,19 @@ CROSS JOIN CTE33_GERAL cg
 -- 34
 ------------------------------------------------------------------------------------------------------------------------------------------
 
-;WITH CTE34 AS (
+;WITH CTE34 AS
+(
       SELECT YEAR(OrderDate)                                     AS [Year],
              DATEPART(QUARTER, OrderDate)                        AS [Quarter],
              SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)) AS TotalSales
-        FROM Orders             o
+        FROM Orders          o
         JOIN [Order Details] od ON o.OrderID = od.OrderID
     GROUP BY YEAR(OrderDate), DATEPART(QUARTER, OrderDate)
 )
   SELECT [Year],
          [Quarter],
-         TotalSales,
-         LAG(TotalSales) OVER (PARTITION BY [Quarter] ORDER BY [Year])                          AS PreviousYearSales,
+         CAST(TotalSales AS DECIMAL(10,2))                                                      AS TotalSales,
+         CAST(LAG(TotalSales) OVER (PARTITION BY [Quarter] ORDER BY [Year]) AS DECIMAL(10,2))   AS PreviousYearSales,
          ROUND((TotalSales - LAG(TotalSales) OVER (PARTITION BY [Quarter] ORDER BY [Year])) / 
              NULLIF(LAG(TotalSales) OVER (PARTITION BY [Quarter] ORDER BY [Year]), 0) * 100, 2) AS PercentChange
     FROM CTE34
@@ -1278,15 +1292,16 @@ ORDER BY c.CustomerID, cte.OrderCount DESC
 -- 36
 ------------------------------------------------------------------------------------------------------------------------------------------
 
-;WITH CTE36_1 AS (
+;WITH CTE36_1 AS
+(
     SELECT CustomerID,
            OrderID,
            OrderDate,
            LAG(OrderDate) OVER (PARTITION BY CustomerID ORDER BY OrderDate) AS PreviousOrderDate
       FROM Orders
-),
-CTE36_2 AS (
-      -- Sem filtrar o primeiro pedido: o COUNT conta todos os pedidos e o AVG já ignora o intervalo nulo do primeiro
+)
+,CTE36_2 AS
+(
       SELECT CustomerID,
              COUNT(OrderID)                                                  AS TotalOrders,
              AVG(CAST(DATEDIFF(DAY, PreviousOrderDate, OrderDate) AS FLOAT)) AS AvgDaysBetween
@@ -1305,27 +1320,24 @@ ORDER BY cte.TotalOrders DESC
 -- 37
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- Nível 1 = cidade, nível 2 = região, nível 3 = país. A recursão sempre vai até o nível 3:
--- quando ShipRegion é nulo, o CONCAT ignora o trecho nulo e o país continua sendo anexado
-
 ;WITH CTE37 AS
 (
-    SELECT OrderID,
-           CAST(ShipCity AS NVARCHAR(MAX)) AS Roadmap,
-           1 AS [Level]
-      FROM Orders
-     WHERE ShipCity IS NOT NULL
+       SELECT OrderID,
+              CAST(ShipCity AS NVARCHAR(MAX)) AS Roadmap,
+              1 AS [Level]
+         FROM Orders
+        WHERE ShipCity IS NOT NULL
 
     UNION ALL
 
-    SELECT o.OrderID,
-           CAST(CONCAT(ce.Roadmap, CASE ce.[Level] WHEN 1 THEN N', ' + o.ShipRegion
-                                                   WHEN 2 THEN N', ' + o.ShipCountry
-                                                   END) AS NVARCHAR(MAX)) AS Roadmap,
-           ce.[Level] + 1
-      FROM Orders o
-      JOIN CTE37  ce ON o.OrderID = ce.OrderID
-     WHERE ce.[Level] < 3
+       SELECT o.OrderID,
+              CAST(CONCAT(ce.Roadmap, CASE ce.[Level] WHEN 1 THEN N', ' + o.ShipRegion
+                                                      WHEN 2 THEN N', ' + o.ShipCountry
+                                                      END) AS NVARCHAR(MAX)) AS Roadmap,
+              ce.[Level] + 1
+         FROM Orders o
+         JOIN CTE37  ce ON o.OrderID = ce.OrderID
+        WHERE ce.[Level] < 3
 )
   SELECT OrderID,
          Roadmap AS RoadmapDelivery
@@ -1351,14 +1363,10 @@ SELECT ProductID,
 	   UnitsInStock, 
 	   UnitsOnOrder
   FROM CTE38_1
- WHERE UnitsOnOrder > 0
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- 39
 ------------------------------------------------------------------------------------------------------------------------------------------
-
--- Ticket médio = valor médio por PEDIDO. Primeiro o total de cada pedido, depois a média por funcionário
--- e a média da empresa (todos os pedidos)
 
 ;WITH OrderTotalCTE39 AS
 (
@@ -1368,29 +1376,29 @@ SELECT ProductID,
         FROM Orders          o
         JOIN [Order Details] od ON od.OrderID = o.OrderID
     GROUP BY o.EmployeeID, o.OrderID
-),
-CTE39_1 AS
+)
+,CTE39_1 AS
 (
       SELECT EmployeeID,
              AVG(OrderTotal) AS AvgTicket
         FROM OrderTotalCTE39
     GROUP BY EmployeeID
-),
-CTE39_2 AS
+)
+,CTE39_2 AS
 (
     SELECT AVG(OrderTotal) AS AvgCompanyTicket
       FROM OrderTotalCTE39
 )
     SELECT e.EmployeeID,
-           e.FirstName + ' ' + e.LastName AS FullName,
-           ROUND(et.AvgTicket, 2)         AS AvgTicket,
-           ROUND(ca.AvgCompanyTicket, 2)  AS AvgCompanyTicket,
+           e.FirstName + ' ' + e.LastName                                     AS FullName,
+           ROUND(et.AvgTicket, 2)                                             AS AvgTicket,
+           ROUND(ca.AvgCompanyTicket, 2)                                      AS AvgCompanyTicket,
            CASE WHEN et.AvgTicket > ca.AvgCompanyTicket THEN 'Acima da Média'
 		        ELSE 'Abaixo da Média'
-				 END AS Performance
-      FROM CTE39_1 et
-      JOIN Employees e ON et.EmployeeID = e.EmployeeID
-CROSS JOIN CTE39_2 ca
+				 END                                                          AS Performance
+      FROM CTE39_1   et
+      JOIN Employees e  ON et.EmployeeID = e.EmployeeID
+CROSS JOIN CTE39_2   ca
   ORDER BY et.AvgTicket DESC
 
 ------------------------------------------------------------------------------------------------------------------------------------------
@@ -1458,7 +1466,7 @@ BEGIN TRY
 	  FROM Products
      WHERE UnitPrice > 0
 
-    -- A validação olha o preço NOVO, gravado na temporária (em Products o preço não mudou)
+    -- A validacao olha o preco NOVO, gravado na temporaria
     IF EXISTS (SELECT 1 FROM #TEMP_41 WHERE NewPrice < 0)
         THROW 50001, 'Preço negativo detectado após atualização.', 1
 
@@ -1518,7 +1526,7 @@ END TRY
 BEGIN CATCH
 	ROLLBACK TRAN
 
-	-- O erro capturado é gravado na tabela de log (antes havia só um SELECT, e o log ficava vazio)
+	-- O erro capturado e gravado na tabela de log (antes havia so um SELECT e o log ficava vazio)
 	INSERT INTO #TEMP_42_LOG
 	SELECT TOP 10
 	       OrderID,
@@ -1569,7 +1577,7 @@ BEGIN TRY
 				WHERE CustomerId = @CustomerId43)
 		THROW 50002, 'Tentativa de inserção de cliente duplicado', 1
 
-	-- Para não alterar a base, o novo cliente é inserido em uma temporária
+	-- Para não alterar a base, o novo cliente e inserido em uma temporaria
 	INSERT INTO #TEMP_43
 	VALUES (@CustomerId43, @CompanyName43, GETDATE(), 'Cliente inserido')
 
@@ -1616,8 +1624,6 @@ CREATE TABLE #TEMP_44_LOG
 	LogMessage  VARCHAR(MAX)
 )
 
--- Tentativa pedida no enunciado: gravar uma data FUTURA em ShippedDate (aqui, um ano à frente) nos pedidos ainda não enviados.
--- A validação rejeita a data e cada tentativa fica registrada no log
 DECLARE Cursor44 CURSOR FOR
 SELECT OrderID,
        ShippedDate
@@ -1877,9 +1883,6 @@ DROP TABLE #TEMP_48_LOG
 -- 49
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- A versão anterior deste exercício criava a tabela permanente ProfitErrorLog no Northwind.
--- Se ela existir na sua base, pode ser removida com: DROP TABLE IF EXISTS ProfitErrorLog
-
 DROP TABLE IF EXISTS #TEMP_49_LOG
 CREATE TABLE #TEMP_49_LOG
 (
@@ -1888,19 +1891,16 @@ CREATE TABLE #TEMP_49_LOG
 )
 
 BEGIN TRY
-    -- Valores nulos são tratados na origem: item sem preço ou sem quantidade entra com lucro zero.
-    -- (NULLIF(0, 0) devolvia NULL, e dividir por NULL não gera erro: o CATCH nunca era executado)
-    ;WITH OrderProfit AS (
-        SELECT
-            OrderID,
-            SUM(ISNULL(UnitPrice, 0) * ISNULL(Quantity, 0) * (1 - ISNULL(Discount, 0))) AS Profit
-        FROM [Order Details]
+    ;WITH OrderProfit AS
+	(
+          SELECT OrderID,
+                 SUM(ISNULL(UnitPrice, 0) * ISNULL(Quantity, 0) * (1 - ISNULL(Discount, 0))) AS Profit
+            FROM [Order Details]
         GROUP BY OrderID
     )
-    SELECT
-        OrderID,
-        CAST(Profit AS DECIMAL(10,2)) AS Profit
-    FROM OrderProfit
+      SELECT OrderID,
+             CAST(Profit AS DECIMAL(10,2)) AS Profit
+        FROM OrderProfit
     ORDER BY OrderID
 END TRY
 BEGIN CATCH
@@ -1941,8 +1941,6 @@ FETCH NEXT FROM Cursor50 INTO @EmployeeId50, @HireDate50
 WHILE @@FETCH_STATUS = 0
 BEGIN
 	BEGIN TRY
-		-- Tentativa pedida no enunciado: trocar HireDate por uma data inválida. Aqui, o dia 31 do mesmo mês:
-		-- nos meses com menos de 31 dias a data não existe, o DATEFROMPARTS gera erro e o erro é registrado
 		SET @NewHireDate50 = DATEFROMPARTS(YEAR(@HireDate50), MONTH(@HireDate50), 31)
 
 		PRINT 'FUNCIONOU: funcionário ' + CAST(@EmployeeId50 AS VARCHAR) + ' -> ' + CONVERT(VARCHAR(10), @NewHireDate50, 23)
@@ -1966,5 +1964,487 @@ DROP TABLE #TEMP_50
 -- 51
 ------------------------------------------------------------------------------------------------------------------------------------------
 
--- PENDENTE: exercícios 51 a 60 ainda não resolvidos
+-- UnitsInStock e SMALLINT. O novo valor (estoque * 1000) estoura erro no tipo nos produtos com estoque alto
+-- Portanto, os erros que vierem a ser observados sao propostais
+DECLARE @ProductId51 INT,
+        @Stock51     INT,
+        @NewStock51  SMALLINT
 
+DROP TABLE IF EXISTS #TEMP_51
+CREATE TABLE #TEMP_51
+(
+	ProductId   INT,
+	OldStock    SMALLINT,
+	NewStock    SMALLINT,
+	UpdatedDate DATETIME
+)
+
+DROP TABLE IF EXISTS #TEMP_51_LOG
+CREATE TABLE #TEMP_51_LOG
+(
+	ProductId   INT,
+	OldStock    INT,
+	UpdatedDate DATETIME,
+	LogMessage  VARCHAR(MAX)
+)
+
+DECLARE Cursor51 CURSOR FOR
+ SELECT ProductID,
+        UnitsInStock
+   FROM Products
+
+OPEN Cursor51
+FETCH NEXT FROM Cursor51 INTO @ProductId51, @Stock51
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+	BEGIN TRY
+		SET @NewStock51 = CAST(@Stock51 * 1000 AS SMALLINT)
+
+		INSERT INTO #TEMP_51 (ProductId, OldStock, NewStock, UpdatedDate)
+		VALUES (@ProductId51, @Stock51, @NewStock51, GETDATE())
+	END TRY
+	BEGIN CATCH
+		INSERT INTO #TEMP_51_LOG (ProductId, OldStock, UpdatedDate, LogMessage)
+		VALUES (@ProductId51, @Stock51, GETDATE(), 'Erro: ' + ERROR_MESSAGE())
+	END CATCH
+
+	FETCH NEXT FROM Cursor51 INTO @ProductId51, @Stock51
+END
+
+CLOSE Cursor51
+DEALLOCATE Cursor51
+
+SELECT * FROM #TEMP_51
+SELECT * FROM #TEMP_51_LOG
+
+DROP TABLE #TEMP_51
+DROP TABLE #TEMP_51_LOG
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- 52
+------------------------------------------------------------------------------------------------------------------------------------------
+
+DROP TABLE IF EXISTS #TEMP_52
+CREATE TABLE #TEMP_52
+(
+	CompanyName VARCHAR(40),
+	UpdatedDate DATETIME,
+	LogMessage  VARCHAR(MAX)
+)
+
+DROP TABLE IF EXISTS #TEMP_52_LOG
+CREATE TABLE #TEMP_52_LOG
+(
+	CompanyName  VARCHAR(40),
+	UpdatedDate  DATETIME,
+	ErrorMessage VARCHAR(MAX)
+)
+
+BEGIN TRY
+	BEGIN TRAN
+
+	DECLARE @CompanyName52 VARCHAR(40) = 'Fornecedor Teste'
+	--DECLARE @CompanyName52 VARCHAR(40) = 'Exotic Liquids'	-- Cenario de fornecedor duplicado
+
+	IF EXISTS (SELECT 1 FROM Suppliers WHERE CompanyName = @CompanyName52)
+		THROW 50001, 'Fornecedor duplicado', 1
+
+	INSERT INTO #TEMP_52 (CompanyName, UpdatedDate, LogMessage)
+	VALUES (@CompanyName52, GETDATE(), 'Fornecedor inserido')
+
+	COMMIT TRAN
+END TRY
+BEGIN CATCH
+	IF @@TRANCOUNT > 0
+		ROLLBACK TRAN
+
+	INSERT INTO #TEMP_52_LOG (CompanyName, UpdatedDate, ErrorMessage)
+	VALUES (@CompanyName52, GETDATE(), 'Erro: ' + ERROR_MESSAGE())
+END CATCH
+
+SELECT * FROM #TEMP_52
+SELECT * FROM #TEMP_52_LOG
+
+DROP TABLE #TEMP_52
+DROP TABLE #TEMP_52_LOG
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- 53
+------------------------------------------------------------------------------------------------------------------------------------------
+
+DROP TABLE IF EXISTS #TEMP_53
+CREATE TABLE #TEMP_53
+(
+	OrderId      INT,
+	DeliveryDays INT
+)
+
+DROP TABLE IF EXISTS #TEMP_53_LOG
+CREATE TABLE #TEMP_53_LOG
+(
+	OrderId      INT,
+	LogDate      DATETIME,
+	ErrorMessage VARCHAR(MAX)
+)
+
+BEGIN TRY
+	INSERT INTO #TEMP_53 (OrderId, DeliveryDays)
+	SELECT OrderID,
+	       DATEDIFF(DAY, OrderDate, ShippedDate)
+	  FROM Orders
+	 WHERE ShippedDate IS NOT NULL
+
+	INSERT INTO #TEMP_53_LOG (OrderId, LogDate, ErrorMessage)
+	SELECT OrderID,
+	       GETDATE(),
+	       'ShippedDate ausente. Pedido fora da media de entrega'
+	  FROM Orders
+	 WHERE ShippedDate IS NULL
+
+	SELECT AVG(CAST(DeliveryDays AS DECIMAL(10,2))) AS AvgDeliveryDays
+	  FROM #TEMP_53
+END TRY
+BEGIN CATCH
+	INSERT INTO #TEMP_53_LOG (OrderId, LogDate, ErrorMessage)
+	VALUES (NULL, GETDATE(), 'Erro: ' + ERROR_MESSAGE())
+END CATCH
+
+SELECT * FROM #TEMP_53
+SELECT * FROM #TEMP_53_LOG
+
+DROP TABLE #TEMP_53
+DROP TABLE #TEMP_53_LOG
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- 54
+------------------------------------------------------------------------------------------------------------------------------------------
+
+DROP TABLE IF EXISTS #TEMP_54_LOG
+CREATE TABLE #TEMP_54_LOG
+(
+	ErrorMessage VARCHAR(MAX),
+	LogDate      DATETIME
+)
+
+BEGIN TRY
+	;WITH Sales54CTE AS
+	(
+	      SELECT c.CategoryName,
+	             SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)) AS TotalSales
+	        FROM Categories      c
+	        JOIN Products        p  ON p.CategoryID = c.CategoryID
+	        JOIN [Order Details] od ON od.ProductID = p.ProductID
+	    GROUP BY c.CategoryName
+	)
+	SELECT CategoryName,
+	       TotalSales,
+	       TotalSales / 0 AS PctSales
+	  FROM Sales54CTE
+END TRY
+BEGIN CATCH
+	INSERT INTO #TEMP_54_LOG (ErrorMessage, LogDate)
+	VALUES ('Erro: ' + ERROR_MESSAGE(), GETDATE())
+END CATCH
+
+SELECT * FROM #TEMP_54_LOG
+DROP TABLE #TEMP_54_LOG
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- 55
+------------------------------------------------------------------------------------------------------------------------------------------
+
+DECLARE @OrderId55     INT,
+        @ProductId55   INT,
+        @OldDiscount55 REAL,
+        @NewDiscount55 REAL
+
+DROP TABLE IF EXISTS #TEMP_55
+CREATE TABLE #TEMP_55
+(
+	OrderId     INT,
+	ProductId   INT,
+	OldDiscount REAL,
+	NewDiscount REAL
+)
+
+DROP TABLE IF EXISTS #TEMP_55_LOG
+CREATE TABLE #TEMP_55_LOG
+(
+	OrderId      INT,
+	ProductId    INT,
+	NewDiscount  REAL,
+	LogDate      DATETIME,
+	ErrorMessage VARCHAR(MAX)
+)
+
+DECLARE Cursor55 CURSOR FOR
+ SELECT OrderID,
+        ProductID,
+        Discount
+   FROM [Order Details]
+
+OPEN Cursor55
+FETCH NEXT FROM Cursor55 INTO @OrderId55, @ProductId55, @OldDiscount55
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+	BEGIN TRY
+		-- Desconto proposto de 150%. Discount guarda fracao: 1 = 100%
+		SET @NewDiscount55 = 1.50
+
+		IF @NewDiscount55 > 1
+			THROW 50001, 'Desconto maior que 100%', 1
+
+		INSERT INTO #TEMP_55 (OrderId, ProductId, OldDiscount, NewDiscount)
+		VALUES (@OrderId55, @ProductId55, @OldDiscount55, @NewDiscount55)
+	END TRY
+	BEGIN CATCH
+		INSERT INTO #TEMP_55_LOG (OrderId, ProductId, NewDiscount, LogDate, ErrorMessage)
+		VALUES (@OrderId55, @ProductId55, @NewDiscount55, GETDATE(), 'Erro: ' + ERROR_MESSAGE())
+	END CATCH
+
+	FETCH NEXT FROM Cursor55 INTO @OrderId55, @ProductId55, @OldDiscount55
+END
+
+CLOSE Cursor55
+DEALLOCATE Cursor55
+
+SELECT * FROM #TEMP_55
+SELECT * FROM #TEMP_55_LOG
+
+DROP TABLE #TEMP_55
+DROP TABLE #TEMP_55_LOG
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- 56
+------------------------------------------------------------------------------------------------------------------------------------------
+
+DECLARE @CustomerId56 CHAR(5),
+        @Phone56      VARCHAR(24),
+        @Digits56     VARCHAR(24),
+        @NewPhone56   VARCHAR(30)
+
+DROP TABLE IF EXISTS #TEMP_56
+CREATE TABLE #TEMP_56
+(
+	CustomerId CHAR(5),
+	OldPhone   VARCHAR(24),
+	NewPhone   VARCHAR(30)
+)
+
+DROP TABLE IF EXISTS #TEMP_56_LOG
+CREATE TABLE #TEMP_56_LOG
+(
+	CustomerId   CHAR(5),
+	OldPhone     VARCHAR(24),
+	LogDate      DATETIME,
+	ErrorMessage VARCHAR(MAX)
+)
+
+DECLARE Cursor56 CURSOR FOR
+ SELECT CustomerID,
+        Phone
+   FROM Customers
+
+OPEN Cursor56
+FETCH NEXT FROM Cursor56 INTO @CustomerId56, @Phone56
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+	BEGIN TRY
+		SET @Digits56 = REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(@Phone56, ' ', ''), '(', ''), ')', ''), '-', ''), '.', '')
+
+		IF (@Digits56 IS NULL OR @Digits56 LIKE '%[^0-9]%' OR LEN(@Digits56) < 8)
+			THROW 50001, 'Telefone em formato invalido', 1
+
+		SET @NewPhone56 = '+55-' + LEFT(@Digits56, LEN(@Digits56) - 4) + '-' + RIGHT(@Digits56, 4)
+
+		INSERT INTO #TEMP_56 (CustomerId, OldPhone, NewPhone)
+		VALUES (@CustomerId56, @Phone56, @NewPhone56)
+	END TRY
+	BEGIN CATCH
+		INSERT INTO #TEMP_56_LOG (CustomerId, OldPhone, LogDate, ErrorMessage)
+		VALUES (@CustomerId56, @Phone56, GETDATE(), 'Erro: ' + ERROR_MESSAGE())
+	END CATCH
+
+	FETCH NEXT FROM Cursor56 INTO @CustomerId56, @Phone56
+END
+
+CLOSE Cursor56
+DEALLOCATE Cursor56
+
+SELECT * FROM #TEMP_56
+SELECT * FROM #TEMP_56_LOG
+
+DROP TABLE #TEMP_56
+DROP TABLE #TEMP_56_LOG
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- 57
+------------------------------------------------------------------------------------------------------------------------------------------
+
+DROP TABLE IF EXISTS #TEMP_57_LOG
+CREATE TABLE #TEMP_57_LOG
+(
+	ProductName  VARCHAR(40),
+	CategoryId   INT,
+	LogDate      DATETIME,
+	ErrorMessage VARCHAR(MAX)
+)
+
+BEGIN TRY
+	BEGIN TRAN
+
+	-- CategoryID 999 nao existe. A FK de Products recusa a linha e a transacao desfaz
+	INSERT INTO Products (ProductName, CategoryID, Discontinued)
+	VALUES ('Produto Teste', 999, 0)
+
+	COMMIT TRAN
+END TRY
+BEGIN CATCH
+	IF @@TRANCOUNT > 0
+		ROLLBACK TRAN
+
+	INSERT INTO #TEMP_57_LOG (ProductName, CategoryId, LogDate, ErrorMessage)
+	VALUES ('Produto Teste', 999, GETDATE(), 'Erro: ' + ERROR_MESSAGE())
+END CATCH
+
+SELECT * FROM #TEMP_57_LOG
+DROP TABLE #TEMP_57_LOG
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- 58
+------------------------------------------------------------------------------------------------------------------------------------------
+
+-- O volume do Northwind nao estoura INT
+-- O CAST para TINYINT forca o erro quando o cliente tem 3 pedidos ou mais
+DECLARE @CustomerId58 CHAR(5),
+        @Qty58        INT,
+        @QtyTiny58    TINYINT
+
+DROP TABLE IF EXISTS #TEMP_58
+CREATE TABLE #TEMP_58
+(
+	CustomerId CHAR(5),
+	QtyOrders  INT
+)
+
+DROP TABLE IF EXISTS #TEMP_58_LOG
+CREATE TABLE #TEMP_58_LOG
+(
+	CustomerId   CHAR(5),
+	QtyOrders    INT,
+	LogDate      DATETIME,
+	ErrorMessage VARCHAR(MAX)
+)
+
+DECLARE Cursor58 CURSOR FOR
+  SELECT CustomerID,
+         COUNT(*)
+    FROM Orders
+GROUP BY CustomerID
+
+OPEN Cursor58
+FETCH NEXT FROM Cursor58 INTO @CustomerId58, @Qty58
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+	BEGIN TRY
+		SET @QtyTiny58 = CAST(@Qty58 * 100 AS TINYINT)
+
+		INSERT INTO #TEMP_58 (CustomerId, QtyOrders)
+		VALUES (@CustomerId58, @Qty58)
+	END TRY
+	BEGIN CATCH
+		INSERT INTO #TEMP_58_LOG (CustomerId, QtyOrders, LogDate, ErrorMessage)
+		VALUES (@CustomerId58, @Qty58, GETDATE(), 'Erro: ' + ERROR_MESSAGE())
+	END CATCH
+
+	FETCH NEXT FROM Cursor58 INTO @CustomerId58, @Qty58
+END
+
+CLOSE Cursor58
+DEALLOCATE Cursor58
+
+SELECT * FROM #TEMP_58
+SELECT * FROM #TEMP_58_LOG
+
+DROP TABLE #TEMP_58
+DROP TABLE #TEMP_58_LOG
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- 59
+------------------------------------------------------------------------------------------------------------------------------------------
+
+-- Como a ideia e dar erro pra uma tabela que nao existe, no mesmo lote e erro de compilacao, o TRY nao captura
+-- O EXEC adia a compilacao, entao o CATCH consegue gravar o log
+DROP TABLE IF EXISTS #TEMP_59_LOG
+CREATE TABLE #TEMP_59_LOG
+(
+	ErrorMessage VARCHAR(MAX),
+	LogDate      DATETIME
+)
+
+BEGIN TRY
+	EXEC('
+		;WITH Orders2CTE AS
+		(
+			SELECT OrderID
+			  FROM Orders2
+		)
+		SELECT OrderID
+		  FROM Orders2CTE
+	')
+END TRY
+BEGIN CATCH
+	INSERT INTO #TEMP_59_LOG (ErrorMessage, LogDate)
+	VALUES ('Erro: ' + ERROR_MESSAGE(), GETDATE())
+END CATCH
+
+SELECT * FROM #TEMP_59_LOG
+DROP TABLE #TEMP_59_LOG
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- 60
+------------------------------------------------------------------------------------------------------------------------------------------
+
+DECLARE @ProductId60 INT,
+        @Stock60     SMALLINT,
+        @Result60    INT
+
+DROP TABLE IF EXISTS #TEMP_60_LOG
+CREATE TABLE #TEMP_60_LOG
+(
+	ProductId    INT,
+	UnitsInStock SMALLINT,
+	LogDate      DATETIME,
+	ErrorMessage VARCHAR(MAX)
+)
+
+DECLARE Cursor60 CURSOR FOR
+ SELECT ProductID,
+        UnitsInStock
+   FROM Products
+
+OPEN Cursor60
+FETCH NEXT FROM Cursor60 INTO @ProductId60, @Stock60
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+	BEGIN TRY
+		SET @Result60 = @Stock60 / 0
+	END TRY
+	BEGIN CATCH
+		INSERT INTO #TEMP_60_LOG (ProductId, UnitsInStock, LogDate, ErrorMessage)
+		VALUES (@ProductId60, @Stock60, GETDATE(), 'Erro: ' + ERROR_MESSAGE())
+	END CATCH
+
+	FETCH NEXT FROM Cursor60 INTO @ProductId60, @Stock60
+END
+
+CLOSE Cursor60
+DEALLOCATE Cursor60
+
+SELECT * FROM #TEMP_60_LOG
+DROP TABLE #TEMP_60_LOG

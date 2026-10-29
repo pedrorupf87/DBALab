@@ -131,10 +131,3 @@
 60. Crie um cursor com TRY-CATCH que percorra `Products` e tente dividir `UnitsInStock` por zero, capturando e logando os erros.
 
 ---
-
-### **Notas**
-- Esses exercícios assumem que você tem acesso ao banco Northwind e pode criar tabelas auxiliares (como logs ou temporárias) conforme necessário.
-- Para testar, ajuste os cenários conforme a estrutura exata do seu banco (ex.: nomes de colunas ou tipos de dados).
-- Os exercícios combinam complexidade técnica e lógica de negócios, ideais para prática avançada em SQL Server.
-
-Se deseja a implementação de algum desses exercícios em código T-SQL, posso fornecer exemplos detalhados! Qual você gostaria que eu elaborasse?
